@@ -20,6 +20,6 @@
     <PackageReference Include="Moq" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\Connector.SqlServer\Connector.Snowflake.csproj" />
+    <ProjectReference Include="..\..\..\src\Connector.Snowflake\Connector.Snowflake.csproj" />
   </ItemGroup>
 </Project>
