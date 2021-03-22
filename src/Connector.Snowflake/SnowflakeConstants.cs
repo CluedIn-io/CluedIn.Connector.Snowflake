@@ -80,6 +80,27 @@ namespace CluedIn.Connector.Snowflake
                     displayName = "Port Number",
                     type = "input",
                     isRequired = false
+                },
+                new Control
+                {
+                    name = KeyName.Account,
+                    displayName = "Account",
+                    type = "input",
+                    isRequired = false
+                },
+                new Control
+                {
+                    name = KeyName.Schema,
+                    displayName = "Schema",
+                    type = "input",
+                    isRequired = false
+                },
+                new Control
+                {
+                    name = KeyName.Warehouse,
+                    displayName = "Warehouse",
+                    type = "input",
+                    isRequired = false
                 }
             }
         };
