@@ -101,6 +101,13 @@ namespace CluedIn.Connector.Snowflake
                     displayName = "Warehouse",
                     type = "input",
                     isRequired = false
+                },
+                new Control
+                {
+                    name = KeyName.Role,
+                    displayName = "Role",
+                    type = "input",
+                    isRequired = false
                 }
             }
         };
