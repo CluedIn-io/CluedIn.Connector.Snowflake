@@ -50,18 +50,18 @@ namespace CluedIn.Connector.Snowflake.Connector
         public string BuildCreateContainerSql(CreateContainerModel model)
         {
             var builder = new StringBuilder();
-            builder.AppendLine($"CREATE TABLE [{Sanitize(model.Name)}](");
+            builder.AppendLine($"CREATE TABLE {Sanitize(model.Name)}(");
 
             var index = 0;
             var count = model.DataTypes.Count;
             foreach (var type in model.DataTypes)
             {
-                builder.AppendLine($"[{Sanitize(type.Name)}] {GetDbType(type.Type)} NULL{(index < count - 1 ? "," : "")}");
+                builder.AppendLine($"{Sanitize(type.Name)} {GetDbType(type.Type)} NULL{(index < count - 1 ? "," : "")}");
 
                 index++;
             }
 
-            builder.AppendLine(") ON[PRIMARY]");
+            builder.AppendLine(")");
 
             var sql = builder.ToString();
             return sql;
@@ -91,7 +91,7 @@ namespace CluedIn.Connector.Snowflake.Connector
         public string BuildEmptyContainerSql(string id)
         {
             var builder = new StringBuilder();
-            builder.AppendLine($"TRUNCATE TABLE [{Sanitize(id)}]");
+            builder.AppendLine($"TRUNCATE TABLE {Sanitize(id)}");
             var sql = builder.ToString();
             return sql;
         }
@@ -206,35 +206,21 @@ namespace CluedIn.Connector.Snowflake.Connector
                 "bigint" => VocabularyKeyDataType.Integer,
                 "int" => VocabularyKeyDataType.Integer,
                 "smallint" => VocabularyKeyDataType.Integer,
-                "tinyint" => VocabularyKeyDataType.Integer,
-                "bit" => VocabularyKeyDataType.Boolean,
+                "boolean" => VocabularyKeyDataType.Boolean,
                 "decimal" => VocabularyKeyDataType.Number,
                 "numeric" => VocabularyKeyDataType.Number,
                 "float" => VocabularyKeyDataType.Number,
                 "real" => VocabularyKeyDataType.Number,
-                "money" => VocabularyKeyDataType.Money,
-                "smallmoney" => VocabularyKeyDataType.Money,
                 "datetime" => VocabularyKeyDataType.DateTime,
-                "smalldatetime" => VocabularyKeyDataType.DateTime,
                 "date" => VocabularyKeyDataType.DateTime,
-                "datetimeoffset" => VocabularyKeyDataType.DateTime,
-                "datetime2" => VocabularyKeyDataType.DateTime,
                 "time" => VocabularyKeyDataType.Time,
                 "char" => VocabularyKeyDataType.Text,
                 "varchar" => VocabularyKeyDataType.Text,
                 "text" => VocabularyKeyDataType.Text,
-                "nchar" => VocabularyKeyDataType.Text,
-                "nvarchar" => VocabularyKeyDataType.Text,
-                "ntext" => VocabularyKeyDataType.Text,
                 "binary" => VocabularyKeyDataType.Text,
                 "varbinary" => VocabularyKeyDataType.Text,
-                "image" => VocabularyKeyDataType.Text,
                 "timestamp" => VocabularyKeyDataType.Text,
-                "uniqueidentifier" => VocabularyKeyDataType.Guid,
-                "XML" => VocabularyKeyDataType.Xml,
-                "geometry" => VocabularyKeyDataType.Text,
-                "geography" => VocabularyKeyDataType.GeographyLocation,
-                _ => VocabularyKeyDataType.Text
+                "geography" => VocabularyKeyDataType.GeographyLocation, _ => VocabularyKeyDataType.Text
             };
         }
 
@@ -245,12 +231,11 @@ namespace CluedIn.Connector.Snowflake.Connector
                 VocabularyKeyDataType.Integer => "bigint",
                 VocabularyKeyDataType.Number => "decimal(18,4)",
                 VocabularyKeyDataType.Money => "money",
-                VocabularyKeyDataType.DateTime => "datetime2",
+                VocabularyKeyDataType.DateTime => "datetime",
                 VocabularyKeyDataType.Time => "time",
                 VocabularyKeyDataType.Xml => "XML",
-                VocabularyKeyDataType.Guid => "uniqueidentifier",
-                VocabularyKeyDataType.GeographyLocation => "geography",
-                _ => "nvarchar(max)"
+                VocabularyKeyDataType.Guid => "varchar(50)",
+                VocabularyKeyDataType.GeographyLocation => "geography", _ => "varchar(max)"
             };
         }
 
@@ -300,14 +285,14 @@ namespace CluedIn.Connector.Snowflake.Connector
             var builder = new StringBuilder();
 
             var nameList = data.Select(n => Sanitize(n.Key)).ToList();
-            var fieldList = string.Join(", ", nameList.Select(n => $"[{n}]"));
+            var fieldList = string.Join(", ", nameList.Select(n => $"{n}"));
             var paramList = string.Join(", ", nameList.Select(n => $"@{n}"));
-            var insertList = string.Join(", ", nameList.Select(n => $"source.[{n}]"));
-            var updateList = string.Join(", ", nameList.Select(n => $"target.[{n}] = source.[{n}]"));
+            var insertList = string.Join(", ", nameList.Select(n => $"source.{n}"));
+            var updateList = string.Join(", ", nameList.Select(n => $"target.{n} = source.{n}"));
 
-            builder.AppendLine($"MERGE [{Sanitize(containerName)}] AS target");
+            builder.AppendLine($"MERGE {Sanitize(containerName)} AS target");
             builder.AppendLine($"USING (SELECT {paramList}) AS source ({fieldList})");
-            builder.AppendLine("  ON (target.[OriginEntityCode] = source.[OriginEntityCode])");
+            builder.AppendLine("  ON (target.OriginEntityCode = source.OriginEntityCode)");
             builder.AppendLine("WHEN MATCHED THEN");
             builder.AppendLine($"  UPDATE SET {updateList}");
             builder.AppendLine("WHEN NOT MATCHED THEN");
@@ -345,7 +330,7 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         private string BuildRenameContainerSql(string id, string newName, out List<SqlParameter> param)
         {
-            var result = $"IF EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '{Sanitize(id)}') EXEC sp_rename @tableName, @newName";
+            var result = $"ALTER TABLE IF EXISTS @tableName RENAME TO @newName";
 
             param = new List<SqlParameter>
             {
@@ -364,7 +349,7 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         private string BuildRemoveContainerSql(string id)
         {
-            var result = $"DROP TABLE [{Sanitize(id)}] IF EXISTS";
+            var result = $"DROP TABLE {Sanitize(id)}";
 
             return result;
         }
