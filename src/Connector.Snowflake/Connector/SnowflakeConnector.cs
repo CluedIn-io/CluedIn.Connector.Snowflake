@@ -83,7 +83,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Could not empty Container {id}";
                 _logger.LogError(e, message);
-                
+
                 throw new EmptyContainerException(message);
             }
         }
@@ -240,18 +240,20 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         private string GetDbType(VocabularyKeyDataType type)
         {
-            return type switch
-            {
-                VocabularyKeyDataType.Integer => "bigint",
-                VocabularyKeyDataType.Number => "decimal(18,4)",
-                VocabularyKeyDataType.Money => "money",
-                VocabularyKeyDataType.DateTime => "datetime2",
-                VocabularyKeyDataType.Time => "time",
-                VocabularyKeyDataType.Xml => "XML",
-                VocabularyKeyDataType.Guid => "uniqueidentifier",
-                VocabularyKeyDataType.GeographyLocation => "geography",
-                _ => "nvarchar(max)"
-            };
+            //return type switch
+            //{
+            //    VocabularyKeyDataType.Integer => "bigint",
+            //    VocabularyKeyDataType.Number => "decimal(18,4)",
+            //    VocabularyKeyDataType.Money => "money",
+            //    VocabularyKeyDataType.DateTime => "datetime2",
+            //    VocabularyKeyDataType.Time => "time",
+            //    VocabularyKeyDataType.Xml => "XML",
+            //    VocabularyKeyDataType.Guid => "uniqueidentifier",
+            //    VocabularyKeyDataType.GeographyLocation => "geography",
+            //    _ => "nvarchar(max)"
+            //};
+
+            return "nvarchar(max)";
         }
 
         public override async Task<bool> VerifyConnection(ExecutionContext executionContext, Guid providerDefinitionId)
@@ -316,7 +318,7 @@ namespace CluedIn.Connector.Snowflake.Connector
 
 
 
-            param = (from dataType in data let name = Sanitize(dataType.Key) select new SqlParameter {ParameterName = $"@{name}", Value = dataType.Value ?? ""}).ToList();
+            param = (from dataType in data let name = Sanitize(dataType.Key) select new SqlParameter { ParameterName = $"@{name}", Value = dataType.Value ?? "" }).ToList();
 
             return builder.ToString();
         }
