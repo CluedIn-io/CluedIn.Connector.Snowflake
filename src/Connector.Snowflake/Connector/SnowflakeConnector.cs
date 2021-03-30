@@ -230,17 +230,19 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         private string GetDbType(VocabularyKeyDataType type)
         {
-            return type switch
-            {
-                VocabularyKeyDataType.Integer => "bigint",
-                VocabularyKeyDataType.Number => "decimal(18,4)",
-                VocabularyKeyDataType.Money => "money",
-                VocabularyKeyDataType.DateTime => "datetime",
-                VocabularyKeyDataType.Time => "time",
-                VocabularyKeyDataType.Xml => "XML",
-                VocabularyKeyDataType.Guid => "varchar",
-                VocabularyKeyDataType.GeographyLocation => "geography", _ => "varchar"
-            };
+            //return type switch
+            //{
+            //    VocabularyKeyDataType.Integer => "bigint",
+            //    VocabularyKeyDataType.Number => "decimal(18,4)",
+            //    VocabularyKeyDataType.Money => "money",
+            //    VocabularyKeyDataType.DateTime => "datetime",
+            //    VocabularyKeyDataType.Time => "time",
+            //    VocabularyKeyDataType.Xml => "XML",
+            //    VocabularyKeyDataType.Guid => "varchar",
+            //    VocabularyKeyDataType.GeographyLocation => "geography", _ => "varchar"
+            //};
+
+            return "varchar";
         }
 
         public override async Task<bool> VerifyConnection(ExecutionContext executionContext, Guid providerDefinitionId)
