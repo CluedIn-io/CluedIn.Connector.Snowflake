@@ -12,13 +12,11 @@
     <EmbeddedResource Include="Resources\snowflake.png" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="CluedIn.Core" />
+    <PackageReference Include="CluedIn.Crawling" />
     <PackageReference Include="ComponentHost" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Dapper.SqlBuilder" />
     <PackageReference Include="Snowflake.Data" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\NewCluedIn\CluedIn\Code\Core\Core.csproj" />
-    <ProjectReference Include="..\..\..\..\..\NewCluedIn\CluedIn\Code\Crawling\Crawling.csproj" />
   </ItemGroup>
 </Project>

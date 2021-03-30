@@ -11,6 +11,7 @@ using CluedIn.Core.Data.Vocabularies;
 using CluedIn.Core.DataStore;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Snowflake.Data.Client;
 
 namespace CluedIn.Connector.Snowflake.Connector
 {
@@ -43,14 +44,14 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Could not create Container {model.Name} for Connector {providerDefinitionId}";
                 _logger.LogError(e, message);
-                throw new CreateContainerException(message);
+                //throw new CreateContainerException(message);
             }
         }
 
         public string BuildCreateContainerSql(CreateContainerModel model)
         {
             var builder = new StringBuilder();
-            builder.AppendLine($"CREATE TABLE {Sanitize(model.Name)}(");
+            builder.AppendLine($"CREATE TABLE {Sanitize(model.Name)} (");
 
             var index = 0;
             var count = model.DataTypes.Count;
@@ -61,7 +62,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                 index++;
             }
 
-            builder.AppendLine(")");
+            builder.AppendLine(");");
 
             var sql = builder.ToString();
             return sql;
@@ -84,7 +85,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                 var message = $"Could not empty Container {id}";
                 _logger.LogError(e, message);
                 
-                throw new EmptyContainerException(message);
+               // throw new EmptyContainerException(message);
             }
         }
 
@@ -146,7 +147,8 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Error checking Container '{name}' exists for Connector {providerDefinitionId}";
                 _logger.LogError(e, message);
-                throw new ConnectionException(message);
+                //throw new ConnectionException(message);
+                return await Task.FromResult(false);
             }
         }
 
@@ -167,7 +169,8 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Could not get Containers for Connector {providerDefinitionId}";
                 _logger.LogError(e, message);
-                throw new GetContainersException(message);
+                //throw new GetContainersException(message);
+                return await Task.FromResult(new List<IConnectorContainer>());
             }
         }
 
@@ -195,7 +198,8 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Could not get Data types for Container '{containerId}' for Connector {providerDefinitionId}";
                 _logger.LogError(e, message);
-                throw new GetDataTypesException(message);
+                // throw new GetDataTypesException(message);
+                return await Task.FromResult(new List<IConnectionDataType>());
             }
         }
 
@@ -234,8 +238,8 @@ namespace CluedIn.Connector.Snowflake.Connector
                 VocabularyKeyDataType.DateTime => "datetime",
                 VocabularyKeyDataType.Time => "time",
                 VocabularyKeyDataType.Xml => "XML",
-                VocabularyKeyDataType.Guid => "varchar(50)",
-                VocabularyKeyDataType.GeographyLocation => "geography", _ => "varchar(max)"
+                VocabularyKeyDataType.Guid => "varchar",
+                VocabularyKeyDataType.GeographyLocation => "geography", _ => "varchar"
             };
         }
 
@@ -249,14 +253,23 @@ namespace CluedIn.Connector.Snowflake.Connector
         {
             try
             {
-                var connection = await _client.GetConnection(config);
 
-                return connection.State == ConnectionState.Open;
+                using (var conn = new SnowflakeDbConnection())
+                {
+                    string connectionString = string.Format("scheme=https;ACCOUNT={0};HOST={1};port={2};ROLE={3};WAREHOUSE={4};USER={5};PASSWORD={6};DB={7};SCHEMA={8}", (string)config[SnowflakeConstants.KeyName.Account], (string)config[SnowflakeConstants.KeyName.Host], (string)config[SnowflakeConstants.KeyName.PortNumber], (string)config[SnowflakeConstants.KeyName.Role], (string)config[SnowflakeConstants.KeyName.Warehouse], (string)config[SnowflakeConstants.KeyName.Username], (string)config[SnowflakeConstants.KeyName.Password], (string)config[SnowflakeConstants.KeyName.DatabaseName], (string)config[SnowflakeConstants.KeyName.Schema]);
+                    conn.ConnectionString = connectionString;
+                    conn.Open();
+                    var cmd = conn.CreateCommand();                 
+                    var result = await Task.FromResult(conn.State == ConnectionState.Open);
+                    conn.Close();
+                    return result;
+                }               
             }
             catch (Exception e)
             {
                 _logger.LogError(e, "Error verifying connection");
-                throw new ConnectionException();
+                // throw new ConnectionException();
+                return await Task.FromResult(false);
             }
         }
 
@@ -276,7 +289,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Could not store data into Container '{containerName}' for Connector {providerDefinitionId}";
                 _logger.LogError(e, message);
-                throw new StoreDataException(message);
+                //throw new StoreDataException(message);
             }
         }
 
@@ -290,7 +303,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             var insertList = string.Join(", ", nameList.Select(n => $"source.{n}"));
             var updateList = string.Join(", ", nameList.Select(n => $"target.{n} = source.{n}"));
 
-            builder.AppendLine($"MERGE {Sanitize(containerName)} AS target");
+            builder.AppendLine($"MERGE {Sanitize(containerName)}] AS target");
             builder.AppendLine($"USING (SELECT {paramList}) AS source ({fieldList})");
             builder.AppendLine("  ON (target.OriginEntityCode = source.OriginEntityCode)");
             builder.AppendLine("WHEN MATCHED THEN");
@@ -324,7 +337,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                 var message = $"Could not archive Container {id}";
                 _logger.LogError(e, message);
 
-                throw new EmptyContainerException(message);
+               // throw new EmptyContainerException(message);
             }
         }
 
@@ -373,7 +386,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                 var message = $"Could not rename Container {id}";
                 _logger.LogError(e, message);
 
-                throw new EmptyContainerException(message);
+                //throw new EmptyContainerException(message);
             }
         }
 
@@ -394,7 +407,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                 var message = $"Could not remove Container {id}";
                 _logger.LogError(e, message);
 
-                throw new EmptyContainerException(message);
+               // throw new EmptyContainerException(message);
             }
         }
     }
