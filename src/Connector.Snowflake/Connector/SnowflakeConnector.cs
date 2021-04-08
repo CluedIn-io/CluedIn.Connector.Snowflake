@@ -280,8 +280,8 @@ namespace CluedIn.Connector.Snowflake.Connector
             try
             {
                 var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
-
-                var sql = BuildStoreDataSql(containerName, data, out var param);
+                string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
+                var sql = BuildStoreDataSql(containerName, data, databaseName, out var param);
 
                 _logger.LogDebug($"Snowflake Connector - Store Data - Generated query: {sql}");
 
@@ -295,7 +295,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             }
         }
 
-        public string BuildStoreDataSql(string containerName, IDictionary<string, object> data, out List<SqlParameter> param)
+        public string BuildStoreDataSql(string containerName, IDictionary<string, object> data, string databaseName, out List<SqlParameter> param)
         {
             var builder = new StringBuilder();
 
@@ -305,6 +305,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             var insertList = string.Join(", ", nameList.Select(n => $"source.{n}"));
             var updateList = string.Join(", ", nameList.Select(n => $"target.{n} = source.{n}"));
 
+            builder.AppendLine($"USE DATABASE {databaseName};");
             builder.AppendLine($"MERGE {Sanitize(containerName)}] AS target");
             builder.AppendLine($"USING (SELECT {paramList}) AS source ({fieldList})");
             builder.AppendLine("  ON (target.OriginEntityCode = source.OriginEntityCode)");
@@ -328,7 +329,8 @@ namespace CluedIn.Connector.Snowflake.Connector
                 var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
 
                 var newName = await GetValidContainerName(executionContext, providerDefinitionId, $"{id}{DateTime.Now:yyyyMMddHHmmss}");
-                var sql = BuildRenameContainerSql(id, newName, out var param);
+                string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
+                var sql = BuildRenameContainerSql(id, newName, databaseName, out var param);
 
                 _logger.LogDebug($"Snowflake Connector - Archive Container - Generated query: {sql}");
 
@@ -343,9 +345,9 @@ namespace CluedIn.Connector.Snowflake.Connector
             }
         }
 
-        private string BuildRenameContainerSql(string id, string newName, out List<SqlParameter> param)
+        private string BuildRenameContainerSql(string id, string newName, string databaseName, out List<SqlParameter> param)
         {
-            var result = $"ALTER TABLE IF EXISTS @tableName RENAME TO @newName";
+            var result = $"USE DATABASE {databaseName}; ALTER TABLE IF EXISTS {Sanitize(id)} RENAME TO {Sanitize(newName)}";
 
             param = new List<SqlParameter>
             {
@@ -362,9 +364,9 @@ namespace CluedIn.Connector.Snowflake.Connector
             return result;
         }
 
-        private string BuildRemoveContainerSql(string id)
+        private string BuildRemoveContainerSql(string id, string databaseName)
         {
-            var result = $"DROP TABLE {Sanitize(id)}";
+            var result = $"USE DATABASE {databaseName}; DROP TABLE {Sanitize(id)}";
 
             return result;
         }
@@ -377,7 +379,9 @@ namespace CluedIn.Connector.Snowflake.Connector
 
                 var tempName = Sanitize(newName);
 
-                var sql = BuildRenameContainerSql(id, tempName, out var param);
+                string databaseName = config.Authentication.GetValue("databaseName").ToString();
+
+                var sql = BuildRenameContainerSql(id, tempName, databaseName, out var param);
 
                 _logger.LogDebug($"Snowflake Connector - Rename Container - Generated query: {sql}");
 
@@ -397,8 +401,8 @@ namespace CluedIn.Connector.Snowflake.Connector
             try
             {
                 var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
-
-                var sql = BuildRemoveContainerSql(id);
+                string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
+                var sql = BuildRemoveContainerSql(id, databaseName);
 
                 _logger.LogDebug($"Snowflake Connector - Remove Container - Generated query: {sql}");
 
