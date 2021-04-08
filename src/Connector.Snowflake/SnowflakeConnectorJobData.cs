@@ -16,7 +16,7 @@ namespace CluedIn.Connector.Snowflake
             DatabaseName = GetValue<string>(configuration, SnowflakeConstants.KeyName.DatabaseName);
             Host = GetValue<string>(configuration, SnowflakeConstants.KeyName.Host);
             Password = GetValue<string>(configuration, SnowflakeConstants.KeyName.Password);
-            PortNumber = GetValue<int>(configuration, SnowflakeConstants.KeyName.PortNumber);
+            PortNumber = GetValue<string>(configuration, SnowflakeConstants.KeyName.PortNumber);
             Role = GetValue<string>(configuration, SnowflakeConstants.KeyName.Role);
             Warehouse = GetValue<string>(configuration, SnowflakeConstants.KeyName.Warehouse);
             Schema = GetValue<string>(configuration, SnowflakeConstants.KeyName.Schema);
@@ -46,7 +46,7 @@ namespace CluedIn.Connector.Snowflake
 
         public string Password { get; set; }
 
-        public int PortNumber { get; set; }
+        public string PortNumber { get; set; }
 
         public string Role { get; set; }
         public string Warehouse { get; set; }

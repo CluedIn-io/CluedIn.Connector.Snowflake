@@ -33,8 +33,8 @@ namespace CluedIn.Connector.Snowflake.Connector
             try
             {
                 var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
-
-                var sql = BuildCreateContainerSql(model);
+                string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
+                var sql = BuildCreateContainerSql(model, databaseName);
 
                 _logger.LogDebug($"Snowflake Connector - Create Container - Generated query: {sql}");
 
@@ -48,10 +48,10 @@ namespace CluedIn.Connector.Snowflake.Connector
             }
         }
 
-        public string BuildCreateContainerSql(CreateContainerModel model)
+        public string BuildCreateContainerSql(CreateContainerModel model, string databaseName)
         {
             var builder = new StringBuilder();
-            builder.AppendLine($"CREATE TABLE {Sanitize(model.Name)} (");
+            builder.AppendLine($"USE DATABASE {databaseName}; CREATE TABLE {Sanitize(model.Name)} (");
 
             var index = 0;
             var count = model.DataTypes.Count;
@@ -205,27 +205,29 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         private VocabularyKeyDataType GetVocabType(string rawType)
         {
-            return rawType.ToLower() switch
-            {
-                "bigint" => VocabularyKeyDataType.Integer,
-                "int" => VocabularyKeyDataType.Integer,
-                "smallint" => VocabularyKeyDataType.Integer,
-                "boolean" => VocabularyKeyDataType.Boolean,
-                "decimal" => VocabularyKeyDataType.Number,
-                "numeric" => VocabularyKeyDataType.Number,
-                "float" => VocabularyKeyDataType.Number,
-                "real" => VocabularyKeyDataType.Number,
-                "datetime" => VocabularyKeyDataType.DateTime,
-                "date" => VocabularyKeyDataType.DateTime,
-                "time" => VocabularyKeyDataType.Time,
-                "char" => VocabularyKeyDataType.Text,
-                "varchar" => VocabularyKeyDataType.Text,
-                "text" => VocabularyKeyDataType.Text,
-                "binary" => VocabularyKeyDataType.Text,
-                "varbinary" => VocabularyKeyDataType.Text,
-                "timestamp" => VocabularyKeyDataType.Text,
-                "geography" => VocabularyKeyDataType.GeographyLocation, _ => VocabularyKeyDataType.Text
-            };
+            //return rawType.ToLower() switch
+            //{
+            //    "bigint" => VocabularyKeyDataType.Integer,
+            //    "int" => VocabularyKeyDataType.Integer,
+            //    "smallint" => VocabularyKeyDataType.Integer,
+            //    "boolean" => VocabularyKeyDataType.Boolean,
+            //    "decimal" => VocabularyKeyDataType.Number,
+            //    "numeric" => VocabularyKeyDataType.Number,
+            //    "float" => VocabularyKeyDataType.Number,
+            //    "real" => VocabularyKeyDataType.Number,
+            //    "datetime" => VocabularyKeyDataType.DateTime,
+            //    "date" => VocabularyKeyDataType.DateTime,
+            //    "time" => VocabularyKeyDataType.Time,
+            //    "char" => VocabularyKeyDataType.Text,
+            //    "varchar" => VocabularyKeyDataType.Text,
+            //    "text" => VocabularyKeyDataType.Text,
+            //    "binary" => VocabularyKeyDataType.Text,
+            //    "varbinary" => VocabularyKeyDataType.Text,
+            //    "timestamp" => VocabularyKeyDataType.Text,
+            //    "geography" => VocabularyKeyDataType.GeographyLocation, _ => VocabularyKeyDataType.Text
+            //};
+
+            return VocabularyKeyDataType.Text;
         }
 
         private string GetDbType(VocabularyKeyDataType type)
@@ -379,7 +381,7 @@ namespace CluedIn.Connector.Snowflake.Connector
 
                 var tempName = Sanitize(newName);
 
-                string databaseName = config.Authentication.GetValue("databaseName").ToString();
+                string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
 
                 var sql = BuildRenameContainerSql(id, tempName, databaseName, out var param);
 
