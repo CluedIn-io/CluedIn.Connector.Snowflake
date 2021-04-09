@@ -307,7 +307,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             var insertList = string.Join(", ", nameList.Select(n => $"source.{n}"));
             var updateList = string.Join(", ", nameList.Select(n => $"target.{n} = source.{n}"));
 
-            builder.AppendLine($"MERGE {Sanitize(containerName)}] AS target");
+            builder.AppendLine($"MERGE {Sanitize(containerName)} AS target");
             builder.AppendLine($"USING (SELECT {paramList}) AS source ({fieldList})");
             builder.AppendLine("  ON (target.OriginEntityCode = source.OriginEntityCode)");
             builder.AppendLine("WHEN MATCHED THEN");
