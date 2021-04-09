@@ -20,6 +20,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                 string connectionString = string.Format("scheme=https;ACCOUNT={0};HOST={1};port={2};ROLE={3};WAREHOUSE={4};USER={5};PASSWORD={6};DB={7};SCHEMA={8}", (string)config.Authentication[SnowflakeConstants.KeyName.Account], (string)config.Authentication[SnowflakeConstants.KeyName.Host], (string)config.Authentication[SnowflakeConstants.KeyName.PortNumber], (string)config.Authentication[SnowflakeConstants.KeyName.Role], (string)config.Authentication[SnowflakeConstants.KeyName.Warehouse], (string)config.Authentication[SnowflakeConstants.KeyName.Username], (string)config.Authentication[SnowflakeConstants.KeyName.Password], (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName], (string)config.Authentication[SnowflakeConstants.KeyName.Schema]);
 
                 conn.ConnectionString = connectionString;
+
                 await conn.OpenAsync();
                 var cmd = conn.CreateCommand();
 

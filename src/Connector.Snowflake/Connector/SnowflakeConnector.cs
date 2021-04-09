@@ -51,7 +51,7 @@ namespace CluedIn.Connector.Snowflake.Connector
         public string BuildCreateContainerSql(CreateContainerModel model, string databaseName)
         {
             var builder = new StringBuilder();
-            builder.AppendLine($"USE DATABASE {databaseName}; CREATE TABLE {Sanitize(model.Name)} (");
+            builder.AppendLine($"CREATE TABLE {Sanitize(model.Name)} (");
 
             var index = 0;
             var count = model.DataTypes.Count;
@@ -307,7 +307,6 @@ namespace CluedIn.Connector.Snowflake.Connector
             var insertList = string.Join(", ", nameList.Select(n => $"source.{n}"));
             var updateList = string.Join(", ", nameList.Select(n => $"target.{n} = source.{n}"));
 
-            builder.AppendLine($"USE DATABASE {databaseName};");
             builder.AppendLine($"MERGE {Sanitize(containerName)}] AS target");
             builder.AppendLine($"USING (SELECT {paramList}) AS source ({fieldList})");
             builder.AppendLine("  ON (target.OriginEntityCode = source.OriginEntityCode)");
@@ -349,7 +348,7 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         private string BuildRenameContainerSql(string id, string newName, string databaseName, out List<SqlParameter> param)
         {
-            var result = $"USE DATABASE {databaseName}; ALTER TABLE IF EXISTS {Sanitize(id)} RENAME TO {Sanitize(newName)}";
+            var result = $"ALTER TABLE IF EXISTS {Sanitize(id)} RENAME TO {Sanitize(newName)}";
 
             param = new List<SqlParameter>
             {
@@ -368,7 +367,7 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         private string BuildRemoveContainerSql(string id, string databaseName)
         {
-            var result = $"USE DATABASE {databaseName}; DROP TABLE {Sanitize(id)}";
+            var result = $"DROP TABLE {Sanitize(id)}";
 
             return result;
         }
