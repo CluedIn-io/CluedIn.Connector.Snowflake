@@ -27,7 +27,16 @@ namespace CluedIn.Connector.Snowflake.Connector
                 cmd.CommandText = commandText;
 
                 if (param != null)
-                    cmd.Parameters.AddRange(param.ToArray());
+                {
+                    foreach (var parameter in param)
+                    {
+                        var tempParam = cmd.CreateParameter();
+                        tempParam.ParameterName = parameter.ParameterName;
+                        tempParam.DbType = parameter.DbType;
+                        tempParam.Value = parameter.Value;
+                        cmd.Parameters.Add(tempParam);
+                    }
+                }
 
                 await cmd.ExecuteNonQueryAsync();
                 await conn.CloseAsync();
