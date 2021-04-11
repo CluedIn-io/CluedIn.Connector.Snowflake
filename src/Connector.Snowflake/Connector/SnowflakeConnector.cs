@@ -301,11 +301,14 @@ namespace CluedIn.Connector.Snowflake.Connector
         {
             var builder = new StringBuilder();
 
-            var nameList = data.Select(n => Sanitize(n.Key)).ToList();
+            var nameList = data.Select(n => n.Key).ToList();
+            var valueList = data.Select(n => n.Value).ToList();
+
             var fieldList = string.Join(", ", nameList.Select(n => $"{n}"));
-            var paramList = string.Join(", ", nameList.Select(n => $"'@{n}'"));
+            var paramList = string.Join(", ", valueList.Select(n => $"'{n}'"));
             var insertList = string.Join(", ", nameList.Select(n => $"source.{n}"));
             var updateList = string.Join(", ", nameList.Select(n => $"target.{n} = source.{n}"));
+
 
             builder.AppendLine($"MERGE INTO {Sanitize(containerName)} AS target");
             builder.AppendLine($"USING (SELECT {paramList}) AS source ({fieldList})");
