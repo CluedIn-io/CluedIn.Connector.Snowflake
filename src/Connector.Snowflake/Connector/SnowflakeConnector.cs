@@ -303,11 +303,11 @@ namespace CluedIn.Connector.Snowflake.Connector
 
             var nameList = data.Select(n => Sanitize(n.Key)).ToList();
             var fieldList = string.Join(", ", nameList.Select(n => $"{n}"));
-            var paramList = string.Join(", ", nameList.Select(n => $"@{n}"));
+            var paramList = string.Join(", ", nameList.Select(n => $"'@{n}'"));
             var insertList = string.Join(", ", nameList.Select(n => $"source.{n}"));
             var updateList = string.Join(", ", nameList.Select(n => $"target.{n} = source.{n}"));
 
-            builder.AppendLine($"MERGE {Sanitize(containerName)} AS target");
+            builder.AppendLine($"MERGE INTO {Sanitize(containerName)} AS target");
             builder.AppendLine($"USING (SELECT {paramList}) AS source ({fieldList})");
             builder.AppendLine("  ON (target.OriginEntityCode = source.OriginEntityCode)");
             builder.AppendLine("WHEN MATCHED THEN");
