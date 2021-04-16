@@ -9,12 +9,12 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
 {
     public class SqlGenerationTests : SnowflakeConnectorTestsBase
     {
-        [Theory(Skip="To fix"), InlineAutoData]
+        [Theory, InlineAutoData]
         public void EmptyContainerWorks(string name)
         {
             var result = Sut.BuildEmptyContainerSql(name);
 
-            Assert.Equal($"TRUNCATE TABLE [{name}]", result.Trim());
+            Assert.Equal($"TRUNCATE TABLE {name}", result.Trim());
         }
 
         [Theory, InlineAutoData]
@@ -38,7 +38,7 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
             Assert.Equal($"CREATE TABLE {name} ( Field1 varchar NULL, Field2 varchar NULL, Field3 varchar NULL, Field4 varchar NULL, Field5 varchar NULL );", result.Trim().Replace(Environment.NewLine, " "));
         }
 
-        [Theory(Skip = "To fix"), InlineAutoData]
+        [Theory, InlineAutoData]
         public void StoreDataWorks(string name, int field1, string field2, DateTime field3, decimal field4, bool field5)
         {
             var data = new Dictionary<string, object>
@@ -52,14 +52,14 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
 
             var result = Sut.BuildStoreDataSql(name, data, out var param);
 
-            Assert.Equal($"MERGE [{name}] AS target" + Environment.NewLine +
-                         "USING (SELECT @Field1, @Field2, @Field3, @Field4, @Field5) AS source ([Field1], [Field2], [Field3], [Field4], [Field5])" + Environment.NewLine +
-                         "  ON (target.[OriginEntityCode] = source.[OriginEntityCode])" + Environment.NewLine +
+            Assert.Equal($"MERGE {name} AS target" + Environment.NewLine +
+                         "USING (SELECT @Field1, @Field2, @Field3, @Field4, @Field5) AS source (Field1, Field2, Field3, Field4, Field5)" + Environment.NewLine +
+                         "  ON (target.OriginEntityCode = source.OriginEntityCode)" + Environment.NewLine +
                          "WHEN MATCHED THEN" + Environment.NewLine +
-                         "  UPDATE SET target.[Field1] = source.[Field1], target.[Field2] = source.[Field2], target.[Field3] = source.[Field3], target.[Field4] = source.[Field4], target.[Field5] = source.[Field5]" + Environment.NewLine +
+                         "  UPDATE SET target.Field1 = source.Field1, target.Field2 = source.Field2, target.Field3 = source.Field3, target.Field4 = source.Field4, target.Field5 = source.Field5" + Environment.NewLine +
                          "WHEN NOT MATCHED THEN" + Environment.NewLine +
-                         "  INSERT ([Field1], [Field2], [Field3], [Field4], [Field5])" + Environment.NewLine +
-                         "  VALUES (source.[Field1], source.[Field2], source.[Field3], source.[Field4], source.[Field5]);", result.Trim());
+                         "  INSERT (Field1, Field2, Field3, Field4, Field5)" + Environment.NewLine +
+                         "  VALUES (source.Field1, source.Field2, source.Field3, source.Field4, source.Field5);", result.Trim());
             Assert.Equal(data.Count, param.Count);
 
             for (var index = 0; index < data.Count; index++)
