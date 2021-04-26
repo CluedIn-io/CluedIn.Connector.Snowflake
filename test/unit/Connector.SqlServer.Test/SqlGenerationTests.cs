@@ -33,7 +33,7 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
                 }
             };
 
-            var result = Sut.BuildCreateContainerSql(model);
+            var result = Sut.BuildCreateContainerSql(model, "dummy_db");
 
             Assert.Equal($"CREATE TABLE {name} ( Field1 varchar NULL, Field2 varchar NULL, Field3 varchar NULL, Field4 varchar NULL, Field5 varchar NULL );", result.Trim().Replace(Environment.NewLine, " "));
         }
@@ -50,10 +50,10 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
                              { "Field5", field5   }
                         };
 
-            var result = Sut.BuildStoreDataSql(name, data, out var param);
+            var result = Sut.BuildStoreDataSql(name, data, "dummy_db", out var param);
 
-            Assert.Equal($"MERGE {name} AS target" + Environment.NewLine +
-                         "USING (SELECT @Field1, @Field2, @Field3, @Field4, @Field5) AS source (Field1, Field2, Field3, Field4, Field5)" + Environment.NewLine +
+            Assert.Equal($"MERGE INTO {name} AS target" + Environment.NewLine +
+                         $"USING (SELECT '{field1}', '{field2}', '{field3}', '{field4}', '{field5}') AS source (Field1, Field2, Field3, Field4, Field5)" + Environment.NewLine +
                          "  ON (target.OriginEntityCode = source.OriginEntityCode)" + Environment.NewLine +
                          "WHEN MATCHED THEN" + Environment.NewLine +
                          "  UPDATE SET target.Field1 = source.Field1, target.Field2 = source.Field2, target.Field3 = source.Field3, target.Field4 = source.Field4, target.Field5 = source.Field5" + Environment.NewLine +

@@ -302,7 +302,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             await Task.CompletedTask;
         }
 
-        public string BuildStoreDataSql(string containerName, IDictionary<string, object> data, out List<SqlParameter> param)
+        public string BuildStoreDataSql(string containerName, IDictionary<string, object> data, string databaseName, out List<SqlParameter> param)
         {
             var builder = new StringBuilder();
 
