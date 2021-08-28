@@ -30,22 +30,35 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         public override async Task CreateContainer(ExecutionContext executionContext, Guid providerDefinitionId, CreateContainerModel model)
         {
-            try
+            async Task CreateTable(string name, IEnumerable<ConnectionDataType> columns, string context)
             {
-                var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
-                string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
-                var sql = BuildCreateContainerSql(model, databaseName);
+                try
+                {
+                    var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+                    string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
+                    var sql = BuildCreateContainerSql(model, databaseName);
 
-                _logger.LogDebug($"Snowflake Connector - Create Container - Generated query: {sql}");
+                    _logger.LogDebug($"Snowflake Connector - Create Container - Generated query: {sql}");
 
-                await _client.ExecuteCommandAsync(config, sql);
+                    await _client.ExecuteCommandAsync(config, sql);
+                }
+                catch (Exception e)
+                {
+                    var message = $"Could not create Container {model.Name} for Connector {providerDefinitionId}";
+                    _logger.LogError(e, message);
+                    //throw new CreateContainerException(message);
+                }
             }
-            catch (Exception e)
-            {
-                var message = $"Could not create Container {model.Name} for Connector {providerDefinitionId}";
-                _logger.LogError(e, message);
-                //throw new CreateContainerException(message);
-            }
+
+            var tasks = new List<Task> { CreateTable(model.Name, model.DataTypes, "Data") };
+            if (model.CreateEdgeTable)
+                tasks.Add(CreateTable(EdgeContainerHelper.GetName(model.Name), new List<ConnectionDataType>
+                {
+                    new ConnectionDataType { Name = Sanitize("OriginEntityCode"), Type = VocabularyKeyDataType.Text },
+                    new ConnectionDataType { Name = Sanitize("Code"), Type = VocabularyKeyDataType.Text },
+                }, "Edges"));
+
+            await Task.WhenAll(tasks);
         }
 
         public string BuildCreateContainerSql(CreateContainerModel model, string databaseName)
@@ -70,23 +83,33 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         public override async Task EmptyContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
         {
-            try
+            async Task EmptyTable(string name, string context)
             {
-                var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+                try
+                {
+                    var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
 
-                var sql = BuildEmptyContainerSql(id);
+                    var sql = BuildEmptyContainerSql(id);
 
-                _logger.LogDebug($"Snowflake Connector - Empty Container - Generated query: {sql}");
+                    _logger.LogDebug($"Snowflake Connector - Empty Container - Generated query: {sql}");
 
-                await _client.ExecuteCommandAsync(config, sql);
+                    await _client.ExecuteCommandAsync(config, sql);
+                }
+                catch (Exception e)
+                {
+                    var message = $"Could not empty Container {id}";
+                    _logger.LogError(e, message);
+
+                    // throw new EmptyContainerException(message);
+                }
             }
-            catch (Exception e)
-            {
-                var message = $"Could not empty Container {id}";
-                _logger.LogError(e, message);
-                
-               // throw new EmptyContainerException(message);
-            }
+
+            var tasks = new List<Task> { EmptyTable(id, "Data") };
+            var edgeTableName = EdgeContainerHelper.GetName(id);
+            if (await CheckTableExists(executionContext, providerDefinitionId, edgeTableName))
+                tasks.Add(EmptyTable(edgeTableName, "Edges"));
+
+            await Task.WhenAll(tasks);
         }
 
         public string BuildEmptyContainerSql(string id)
@@ -299,7 +322,27 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         public override async Task StoreEdgeData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, string originEntityCode, IEnumerable<string> edges)
         {
-            await Task.CompletedTask;
+            //await Task.CompletedTask;
+
+            try
+            {
+                var edgeTableName = EdgeContainerHelper.GetName(containerName);
+                if (await CheckTableExists(executionContext, providerDefinitionId, edgeTableName))
+                {
+                    var sql = BuildEdgeStoreDataSql(edgeTableName, originEntityCode, edges, out var param);
+
+                    _logger.LogDebug($"Sql Server Connector - Store Edge Data - Generated query: {sql}");
+
+                    var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+                    await _client.ExecuteCommandAsync(config, sql, param);
+                }
+            }
+            catch (Exception e)
+            {
+                var message = $"Could not store edge data into Container '{containerName}' for Connector {providerDefinitionId}";
+                _logger.LogError(e, message);
+                throw new StoreDataException(message);
+            }
         }
 
         public string BuildStoreDataSql(string containerName, IDictionary<string, object> data, string databaseName, out List<SqlParameter> param)
@@ -331,27 +374,66 @@ namespace CluedIn.Connector.Snowflake.Connector
             return builder.ToString();
         }
 
+        public string BuildEdgeStoreDataSql(string containerName, string originEntityCode, IEnumerable<string> edges, out List<SqlParameter> param)
+        {
+            var originParam = new SqlParameter { ParameterName = "@OriginEntityCode", Value = originEntityCode };
+            param = new List<SqlParameter> { originParam };
+
+            var builder = new StringBuilder();
+            builder.AppendLine($"DELETE FROM [{Sanitize(containerName)}] where [OriginEntityCode] = {originParam.ParameterName}");
+            var edgeValues = new List<string>();
+            foreach (var edge in edges)
+            {
+                var edgeParam = new SqlParameter
+                {
+                    ParameterName = $"@{edgeValues.Count}",
+                    Value = edge
+                };
+                param.Add(edgeParam);
+                edgeValues.Add($"(@OriginEntityCode, {edgeParam.ParameterName})");
+            }
+
+            if (edgeValues.Count > 0)
+            {
+                builder.AppendLine($"INSERT INTO [{Sanitize(containerName)}] ([OriginEntityCode],[Code]) values");
+                builder.AppendJoin(", ", edgeValues);
+            }
+
+            return builder.ToString();
+        }
+
+
         public override async Task ArchiveContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
         {
-            try
+            async Task ArchiveTable(string name, string context)
             {
-                var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+                try
+                {
+                    var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
 
-                var newName = await GetValidContainerName(executionContext, providerDefinitionId, $"{id}{DateTime.Now:yyyyMMddHHmmss}");
-                string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
-                var sql = BuildRenameContainerSql(id, newName, databaseName, out var param);
+                    var newName = await GetValidContainerName(executionContext, providerDefinitionId, $"{id}{DateTime.Now:yyyyMMddHHmmss}");
+                    string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
+                    var sql = BuildRenameContainerSql(id, newName, databaseName, out var param);
 
-                _logger.LogDebug($"Snowflake Connector - Archive Container - Generated query: {sql}");
+                    _logger.LogDebug($"Snowflake Connector - Archive Container - Generated query: {sql}");
 
-                await _client.ExecuteCommandAsync(config, sql, param);
+                    await _client.ExecuteCommandAsync(config, sql, param);
+                }
+                catch (Exception e)
+                {
+                    var message = $"Could not archive Container {id}";
+                    _logger.LogError(e, message);
+
+                    // throw new EmptyContainerException(message);
+                }
             }
-            catch (Exception e)
-            {
-                var message = $"Could not archive Container {id}";
-                _logger.LogError(e, message);
 
-               // throw new EmptyContainerException(message);
-            }
+            var tasks = new List<Task> { ArchiveTable(id, "Data") };
+            var edgeTableName = EdgeContainerHelper.GetName(id);
+            if (await CheckTableExists(executionContext, providerDefinitionId, edgeTableName))
+                tasks.Add(ArchiveTable(edgeTableName, "Edges"));
+
+            await Task.WhenAll(tasks);
         }
 
         private string BuildRenameContainerSql(string id, string newName, string databaseName, out List<SqlParameter> param)
@@ -382,27 +464,37 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         public override async Task RenameContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id, string newName)
         {
-            try
+            async Task RenameTable(string currentName, string updatedName, string context)
             {
-                var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+                try
+                {
+                    var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
 
-                var tempName = Sanitize(newName);
+                    var tempName = Sanitize(newName);
 
-                string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
+                    string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
 
-                var sql = BuildRenameContainerSql(id, tempName, databaseName, out var param);
+                    var sql = BuildRenameContainerSql(id, tempName, databaseName, out var param);
 
-                _logger.LogDebug($"Snowflake Connector - Rename Container - Generated query: {sql}");
+                    _logger.LogDebug($"Snowflake Connector - Rename Container - Generated query: {sql}");
 
-                await _client.ExecuteCommandAsync(config, sql, param);
+                    await _client.ExecuteCommandAsync(config, sql, param);
+                }
+                catch (Exception e)
+                {
+                    var message = $"Could not rename Container {id}";
+                    _logger.LogError(e, message);
+
+                    //throw new EmptyContainerException(message);
+                }
             }
-            catch (Exception e)
-            {
-                var message = $"Could not rename Container {id}";
-                _logger.LogError(e, message);
 
-                //throw new EmptyContainerException(message);
-            }
+            var tasks = new List<Task> { RenameTable(id, newName, "Data") };
+            var edgeTableName = EdgeContainerHelper.GetName(id);
+            if (await CheckTableExists(executionContext, providerDefinitionId, edgeTableName))
+                tasks.Add(RenameTable(edgeTableName, EdgeContainerHelper.GetName(newName), "Edges"));
+
+            await Task.WhenAll(tasks);
         }
 
         public override async Task RemoveContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
