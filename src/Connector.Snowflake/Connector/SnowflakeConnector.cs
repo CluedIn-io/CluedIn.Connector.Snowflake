@@ -326,9 +326,22 @@ namespace CluedIn.Connector.Snowflake.Connector
 
 
 
-            param = (from dataType in data let name = Sanitize(dataType.Key) select new SqlParameter {ParameterName = $"@{name}", Value = dataType.Value ?? ""}).ToList();
+            param = (from dataType in data let name = Sanitize(dataType.Key) select new SqlParameter { ParameterName = $"@{name}", Value = GetDbCompatibleValue(dataType.Value ?? "") }).ToList();
 
             return builder.ToString();
+        }
+
+        private object GetDbCompatibleValue(object o)
+        {
+            try
+            {
+                var t = new SqlParameter() { ParameterName = "dummy", Value = o }.DbType;
+                return o;
+            }
+            catch
+            {
+                return JsonUtility.Serialize(o);
+            }
         }
 
         public override async Task ArchiveContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
