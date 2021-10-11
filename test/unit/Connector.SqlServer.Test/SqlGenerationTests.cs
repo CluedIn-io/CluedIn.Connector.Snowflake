@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using AutoFixture.Xunit2;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.Data.Vocabularies;
@@ -14,7 +15,7 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
         {
             var result = Sut.BuildEmptyContainerSql(name);
 
-            Assert.Equal($"TRUNCATE TABLE {name}", result.Trim());
+            Assert.Equal($"TRUNCATE TABLE {name}Edges", result.Trim());
         }
 
         [Theory, InlineAutoData]
@@ -35,7 +36,28 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
 
             var result = Sut.BuildCreateContainerSql(model, "dummy_db");
 
-            Assert.Equal($"CREATE TABLE {name} ( Field1 varchar NULL, Field2 varchar NULL, Field3 varchar NULL, Field4 varchar NULL, Field5 varchar NULL );", result.Trim().Replace(Environment.NewLine, " "));
+            Assert.Equal($"CREATE TABLE {name}Edges ( OriginEntityCode varchar, Code varchar );", result.Trim().Replace(Environment.NewLine, " "));
+        }
+
+        [Theory, InlineAutoData]
+        public void StoreEdgeDataWorks(string name, string originEntityCode, List<string> edges)
+        {
+            var result = Sut.BuildEdgeStoreData(name, originEntityCode, edges, out var param);
+            Assert.Equal(edges.Count + 1, param.Count); // params will also include origin entity code
+            Assert.Contains(param, p => p.ParameterName == "@OriginEntityCode" && p.Value.Equals(originEntityCode));
+            for(var index = 0; index < edges.Count; index++)
+            {
+                Assert.Contains(param, p => p.ParameterName == $"@{index}" && p.Value.Equals(edges[index]));
+            }
+
+            var expectedLines = new List<string>
+            {
+                $"INSERT INTO {name}Edges (OriginEntityCode, Code) values",
+                string.Join(", ", Enumerable.Range(0, edges.Count).Select(i => $"(@OriginEntityCode, @{i})"))
+            };
+
+            var expectedSql = string.Join(Environment.NewLine, expectedLines);
+            Assert.Equal(expectedSql, result.Trim());
         }
 
         [Theory, InlineAutoData]

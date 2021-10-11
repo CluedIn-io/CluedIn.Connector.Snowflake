@@ -51,16 +51,9 @@ namespace CluedIn.Connector.Snowflake.Connector
         public string BuildCreateContainerSql(CreateContainerModel model, string databaseName)
         {
             var builder = new StringBuilder();
-            builder.AppendLine($"CREATE TABLE {Sanitize(model.Name)} (");
-
-            var index = 0;
-            var count = model.DataTypes.Count;
-            foreach (var type in model.DataTypes)
-            {
-                builder.AppendLine($"{Sanitize(type.Name)} {GetDbType(type.Type)} NULL{(index < count - 1 ? "," : "")}");
-
-                index++;
-            }
+            builder.AppendLine($"CREATE TABLE {Sanitize(model.Name)}Edges (");
+            builder.AppendLine("OriginEntityCode varchar,");
+            builder.AppendLine("Code varchar");
 
             builder.AppendLine(");");
 
@@ -84,7 +77,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Could not empty Container {id}";
                 _logger.LogError(e, message);
-                
+
                // throw new EmptyContainerException(message);
             }
         }
@@ -92,7 +85,7 @@ namespace CluedIn.Connector.Snowflake.Connector
         public string BuildEmptyContainerSql(string id)
         {
             var builder = new StringBuilder();
-            builder.AppendLine($"TRUNCATE TABLE {Sanitize(id)}");
+            builder.AppendLine($"TRUNCATE TABLE {Sanitize(id)}Edges");
             var sql = builder.ToString();
             return sql;
         }
@@ -263,11 +256,11 @@ namespace CluedIn.Connector.Snowflake.Connector
                     string connectionString = string.Format("scheme=https;ACCOUNT={0};HOST={1};port={2};ROLE={3};WAREHOUSE={4};USER={5};PASSWORD={6};DB={7};SCHEMA={8}", (string)config[SnowflakeConstants.KeyName.Account], (string)config[SnowflakeConstants.KeyName.Host], (string)config[SnowflakeConstants.KeyName.PortNumber], (string)config[SnowflakeConstants.KeyName.Role], (string)config[SnowflakeConstants.KeyName.Warehouse], (string)config[SnowflakeConstants.KeyName.Username], (string)config[SnowflakeConstants.KeyName.Password], (string)config[SnowflakeConstants.KeyName.DatabaseName], (string)config[SnowflakeConstants.KeyName.Schema]);
                     conn.ConnectionString = connectionString;
                     conn.Open();
-                    var cmd = conn.CreateCommand();                 
+                    var cmd = conn.CreateCommand();
                     var result = await Task.FromResult(conn.State == ConnectionState.Open);
                     conn.Close();
                     return result;
-                }               
+                }
             }
             catch (Exception e)
             {
@@ -279,13 +272,34 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         public override async Task StoreData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, IDictionary<string, object> data)
         {
+            // try
+            // {
+            //     var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+            //     string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
+            //     var sql = BuildStoreDataSql(containerName, data, databaseName, out var param);
+            //
+            //     _logger.LogDebug($"Snowflake Connector - Store Data - Generated query: {sql}");
+            //
+            //     await _client.ExecuteCommandAsync(config, sql, param);
+            // }
+            // catch (Exception e)
+            // {
+            //     var message = $"Could not store data into Container '{containerName}' for Connector {providerDefinitionId}";
+            //     _logger.LogError(e, message);
+            //     //throw new StoreDataException(message);
+            // }
+            await Task.CompletedTask; // LHO Specific: Sync edges (rest of the data has been streamed out already!)
+        }
+
+        public override async Task StoreEdgeData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, string originEntityCode, IEnumerable<string> edges)
+        {
             try
             {
                 var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
                 string databaseName = (string)config.Authentication[SnowflakeConstants.KeyName.DatabaseName];
-                var sql = BuildStoreDataSql(containerName, data, databaseName, out var param);
+                var sql = BuildEdgeStoreData(containerName, originEntityCode, edges, out var param);
 
-                _logger.LogDebug($"Snowflake Connector - Store Data - Generated query: {sql}");
+                _logger.LogDebug($"Snowflake Connector - Store Edge Data - Generated query: {sql}");
 
                 await _client.ExecuteCommandAsync(config, sql, param);
             }
@@ -293,13 +307,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Could not store data into Container '{containerName}' for Connector {providerDefinitionId}";
                 _logger.LogError(e, message);
-                //throw new StoreDataException(message);
             }
-        }
-
-        public override async Task StoreEdgeData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, string originEntityCode, IEnumerable<string> edges)
-        {
-            await Task.CompletedTask;
         }
 
         public string BuildStoreDataSql(string containerName, IDictionary<string, object> data, string databaseName, out List<SqlParameter> param)
@@ -327,6 +335,33 @@ namespace CluedIn.Connector.Snowflake.Connector
 
 
             param = (from dataType in data let name = Sanitize(dataType.Key) select new SqlParameter { ParameterName = $"@{name}", Value = GetDbCompatibleValue(dataType.Value ?? "") }).ToList();
+
+            return builder.ToString();
+        }
+
+        public string BuildEdgeStoreData(string containerName, string originEntityCode, IEnumerable<string> edges, out List<SqlParameter> param)
+        {
+            var originParam = new SqlParameter { ParameterName = "@OriginEntityCode", Value = originEntityCode };
+            param = new List<SqlParameter> { originParam };
+
+            var builder = new StringBuilder();
+            var edgeValues = new List<string>();
+            foreach (var edge in edges)
+            {
+                var edgeParam = new SqlParameter
+                {
+                    ParameterName = $"@{edgeValues.Count}",
+                    Value = edge
+                };
+                param.Add(edgeParam);
+                edgeValues.Add($"(@OriginEntityCode, {edgeParam.ParameterName})");
+            }
+
+            if(edgeValues.Count > 0)
+            {
+                builder.AppendLine($"INSERT INTO {Sanitize(containerName)}Edges (OriginEntityCode, Code) values");
+                builder.AppendJoin(", ", edgeValues);
+            }
 
             return builder.ToString();
         }
@@ -369,7 +404,7 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         private string BuildRenameContainerSql(string id, string newName, string databaseName, out List<SqlParameter> param)
         {
-            var result = $"ALTER TABLE IF EXISTS {Sanitize(id)} RENAME TO {Sanitize(newName)}";
+            var result = $"ALTER TABLE IF EXISTS {Sanitize(id)}Edges RENAME TO {Sanitize(newName)}Edges";
 
             param = new List<SqlParameter>
             {
@@ -388,7 +423,7 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         private string BuildRemoveContainerSql(string id, string databaseName)
         {
-            var result = $"DROP TABLE {Sanitize(id)}";
+            var result = $"DROP TABLE {Sanitize(id)}Edges";
 
             return result;
         }
