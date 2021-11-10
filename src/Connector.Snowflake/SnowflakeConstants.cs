@@ -18,6 +18,7 @@ namespace CluedIn.Connector.Snowflake
             public const string Warehouse = "warehouse";
             public const string Schema = "schema";
             public const string Account = "account";
+            public const string Threshold = "threshold";
         }
 
         public const string ConnectorName = "SnowflakeConnector";

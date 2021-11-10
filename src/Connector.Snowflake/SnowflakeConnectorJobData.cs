@@ -21,6 +21,7 @@ namespace CluedIn.Connector.Snowflake
             Warehouse = GetValue<string>(configuration, SnowflakeConstants.KeyName.Warehouse);
             Schema = GetValue<string>(configuration, SnowflakeConstants.KeyName.Schema);
             Account = GetValue<string>(configuration, SnowflakeConstants.KeyName.Account);
+            Threshold = GetValue<int>(configuration, SnowflakeConstants.KeyName.Threshold);
         }
 
         public IDictionary<string, object> ToDictionary()
@@ -34,7 +35,8 @@ namespace CluedIn.Connector.Snowflake
                 { SnowflakeConstants.KeyName.Role, Role },
                 { SnowflakeConstants.KeyName.Warehouse, Warehouse },
                 { SnowflakeConstants.KeyName.Schema, Schema },
-                { SnowflakeConstants.KeyName.Account, Account}
+                { SnowflakeConstants.KeyName.Account, Account},
+                { SnowflakeConstants.KeyName.Threshold, Threshold}
             };
         }
 
@@ -53,5 +55,7 @@ namespace CluedIn.Connector.Snowflake
         public string Schema { get; set; }
 
         public string Account { get; set; }
+
+        public int Threshold { get; set; }
     }
 }

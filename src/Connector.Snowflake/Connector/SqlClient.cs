@@ -39,6 +39,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                 }
 
                 await cmd.ExecuteNonQueryAsync();
+
                 await conn.CloseAsync();
             }
         }
@@ -72,7 +73,7 @@ namespace CluedIn.Connector.Snowflake.Connector
 
                     string connectionString = string.Format("scheme=https;ACCOUNT={0};HOST={1};port={2};ROLE={3};WAREHOUSE={4};USER={5};PASSWORD={6};DB={7};SCHEMA={8}", (string)config[SnowflakeConstants.KeyName.Account], (string)config[SnowflakeConstants.KeyName.Host], (string)config[SnowflakeConstants.KeyName.PortNumber], (string)config[SnowflakeConstants.KeyName.Role], (string)config[SnowflakeConstants.KeyName.Warehouse], (string)config[SnowflakeConstants.KeyName.Username], (string)config[SnowflakeConstants.KeyName.Password], (string)config[SnowflakeConstants.KeyName.DatabaseName], (string)config[SnowflakeConstants.KeyName.Schema]);
                     conn.ConnectionString = connectionString;
-                   
+
                     await conn.OpenAsync();
                     var cmd = conn.CreateCommand();
                     cmd.CommandText = "select * from " + name;
@@ -85,7 +86,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             }
             catch (Exception)
             {
-                
+
                 return new DataTable();
             }
         }
@@ -111,7 +112,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             }
             catch (Exception)
             {
-             
+
                 return new DataTable();
             }
         }
