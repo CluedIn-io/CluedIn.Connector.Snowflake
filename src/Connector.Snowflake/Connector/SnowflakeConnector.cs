@@ -465,7 +465,7 @@ namespace CluedIn.Connector.Snowflake.Connector
 
             if (edgeValues.Count > 0)
             {
-                builder.AppendLine($"INSERT INTO {Sanitize(containerName)}Edges (OriginEntityCode, Edge) values");
+                builder.AppendLine($"INSERT INTO {Sanitize(containerName)}Edges (OriginEntityCode, Code) values");
                 builder.AppendJoin(", ", edgeValues);
             }
 
