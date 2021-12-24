@@ -9,13 +9,14 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
 {
     public class SqlGenerationTests : SnowflakeConnectorTestsBase
     {
-        [Theory, InlineAutoData]
-        public void EmptyContainerWorks(string name)
-        {
-            var result = Sut.BuildEmptyContainerSql(name);
 
-            Assert.Equal($"TRUNCATE TABLE {name}", result.Trim());
-        }
+        //[Theory, InlineAutoData]
+        //public void EmptyContainerWorks(string name, string originEntityCode,)
+        //{
+        //    var result = Sut.EmptyContainer(name);
+
+        //    Assert.Equal($"TRUNCATE TABLE {name}", result.Trim());
+        //}
 
         [Theory, InlineAutoData]
         public void CreateContainerWorks(string name)
