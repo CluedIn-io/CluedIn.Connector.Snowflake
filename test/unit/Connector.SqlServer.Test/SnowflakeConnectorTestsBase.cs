@@ -7,12 +7,12 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
 {
     public class SnowflakeConnectorTestsBase
     {
-        public readonly SnowflakeConnector Sut;
-        public readonly Mock<IConfigurationRepository> Repo = new Mock<IConfigurationRepository>();
-        public readonly Mock<ILogger<SnowflakeConnector>> Logger = new Mock<ILogger<SnowflakeConnector>>();
-        public readonly Mock<ISnowflakeClient> Client = new Mock<ISnowflakeClient>();
-        public readonly Mock<ISnowflakeConstants> Constants = new Mock<ISnowflakeConstants>();
-        public readonly TestContext Context = new TestContext();
+        protected readonly SnowflakeConnector Sut;
+        protected readonly Mock<IConfigurationRepository> Repo = new Mock<IConfigurationRepository>();
+        protected readonly Mock<ILogger<SnowflakeConnector>> Logger = new Mock<ILogger<SnowflakeConnector>>();
+        protected readonly Mock<ISnowflakeClient> Client = new Mock<ISnowflakeClient>();
+        protected readonly Mock<ISnowflakeConstants> Constants = new Mock<ISnowflakeConstants>();
+        protected readonly TestContext Context = new TestContext();
 
         public SnowflakeConnectorTestsBase()
         {
