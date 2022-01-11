@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using AutoFixture.Xunit2;
+using CluedIn.Connector.Common.Helpers;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.Data.Vocabularies;
 using Xunit;
@@ -21,6 +22,7 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
         [Theory, InlineAutoData]
         public void CreateContainerWorks(string name)
         {
+            var expectedName = SqlStringSanitizer.Sanitize(name);
             var model = new CreateContainerModel
             {
                 Name = name,
@@ -36,12 +38,13 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
 
             var result = Sut.BuildCreateContainerSql(model, "dummy_db");
 
-            Assert.Equal($"CREATE TABLE {name} ( Field1 varchar NULL, Field2 varchar NULL, Field3 varchar NULL, Field4 varchar NULL, Field5 varchar NULL );", result.Trim().Replace(Environment.NewLine, " "));
+            Assert.Equal($"CREATE TABLE IF NOT EXISTS {expectedName} ( Field1 varchar NULL, Field2 varchar NULL, Field3 varchar NULL, Field4 varchar NULL, Field5 varchar NULL );", result.Trim().Replace(Environment.NewLine, " "));
         }
 
         [Theory, InlineAutoData]
         public void StoreDataWorks(string name, int field1, string field2, DateTime field3, decimal field4, bool field5)
         {
+            var expectedName = SqlStringSanitizer.Sanitize(name);
             var data = new Dictionary<string, object>
                         {
                              { "Field1", field1   },
@@ -53,7 +56,7 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
 
             var result = Sut.BuildStoreDataSql(name, data, "dummy_db", out var param);
 
-            Assert.Equal($"MERGE INTO {name} AS target" + Environment.NewLine +
+            Assert.Equal($"MERGE INTO {expectedName} AS target" + Environment.NewLine +
                          $"USING (SELECT '{field1}', '{field2}', '{field3}', '{field4}', '{field5}') AS source (Field1, Field2, Field3, Field4, Field5)" + Environment.NewLine +
                          "  ON (target.OriginEntityCode = source.OriginEntityCode)" + Environment.NewLine +
                          "WHEN MATCHED THEN" + Environment.NewLine +
