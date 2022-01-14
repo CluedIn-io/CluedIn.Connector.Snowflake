@@ -92,13 +92,13 @@ csharp_style_conditional_delegate_call = true : suggestion
 csharp_style_throw_expression = true : suggestion
 
 # Code block preferences
-csharp_prefer_braces = true : suggestion
+csharp_prefer_braces = false : suggestion
 
 ## Formatting conventions
 # Dotnet formatting settings:
 [*.{cs,vb}]
 # Organize usings
-dotnet_sort_system_directives_first = true
+dotnet_sort_system_directives_first = false
 
 # CSharp formatting settings:
 [*.cs]
@@ -127,6 +127,7 @@ csharp_space_between_parentheses = false
 # Wrapping options
 csharp_preserve_single_line_blocks = true
 csharp_preserve_single_line_statements = false
+csharp_style_prefer_pattern_matching=true:suggestion
 
 ## Naming conventions
 [*.{cs,vb}]
@@ -204,3 +205,4 @@ dotnet_naming_rule.everything_else_naming.severity = suggestion
 
 dotnet_naming_symbols.everything_else.applicable_kinds = *
 dotnet_naming_symbols.everything_else.applicable_accessibilities = *
+dotnet_style_allow_multiple_blank_lines_experimental=false:silent
