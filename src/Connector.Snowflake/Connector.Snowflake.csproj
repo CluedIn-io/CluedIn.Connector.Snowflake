@@ -12,8 +12,7 @@
     <EmbeddedResource Include="Resources\snowflake.png" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="CluedIn.Crawling" />
-    <PackageReference Include="Dapper.SqlBuilder" />
+    <PackageReference Include="CluedIn.Connector.Common" />    
     <PackageReference Include="Snowflake.Data" />
   </ItemGroup>
 </Project>
