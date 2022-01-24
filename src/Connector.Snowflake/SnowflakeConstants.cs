@@ -1,4 +1,5 @@
 using CluedIn.Connector.Common.Configurations;
+using CluedIn.Core;
 using CluedIn.Core.Providers;
 using System;
 
@@ -29,63 +30,63 @@ namespace CluedIn.Connector.Snowflake
             {
                 new Control
                 {
-                    name = CommonConfigurationNames.Host,
-                    displayName = CommonConfigurationNames.Host,
+                    name = CommonConfigurationNames.Host.ToCamelCase(),
+                    displayName = CommonConfigurationNames.Host.ToDisplayName(),
                     type = "input",
                     isRequired = true
                 },
                 new Control
                 {
-                    name = CommonConfigurationNames.DatabaseName,
-                    displayName = CommonConfigurationNames.DatabaseName,
+                    name = CommonConfigurationNames.DatabaseName.ToCamelCase(),
+                    displayName = CommonConfigurationNames.DatabaseName.ToDisplayName(),
                     type = "input",
                     isRequired = true
                 },
                 new Control
                 {
-                    name = CommonConfigurationNames.Username,
-                    displayName = CommonConfigurationNames.Username,
+                    name = CommonConfigurationNames.Username.ToCamelCase(),
+                    displayName = CommonConfigurationNames.Username.ToDisplayName(),
                     type = "input",
                     isRequired = true
                 },
                 new Control
                 {
-                    name = CommonConfigurationNames.Password,
-                    displayName = CommonConfigurationNames.Password,
+                    name = CommonConfigurationNames.Password.ToCamelCase(),
+                    displayName = CommonConfigurationNames.Password.ToDisplayName(),
                     type = "password",
                     isRequired = true
                 },
                 new Control
                 {
-                    name = CommonConfigurationNames.PortNumber,
-                    displayName = CommonConfigurationNames.PortNumber,
+                    name = CommonConfigurationNames.PortNumber.ToCamelCase(),
+                    displayName = CommonConfigurationNames.PortNumber.ToDisplayName(),
                     type = "input",
                     isRequired = false
                 },
                 new Control
                 {
-                    name = Account,
+                    name = Account.ToCamelCase(),
                     displayName = Account,
                     type = "input",
                     isRequired = false
                 },
                 new Control
                 {
-                    name = CommonConfigurationNames.Schema,
-                    displayName = CommonConfigurationNames.Schema,
+                    name = CommonConfigurationNames.Schema.ToCamelCase(),
+                    displayName = CommonConfigurationNames.Schema.ToDisplayName(),
                     type = "input",
                     isRequired = false
                 },
                 new Control
                 {
-                    name = Warehouse,
+                    name = Warehouse.ToCamelCase(),
                     displayName = Warehouse,
                     type = "input",
                     isRequired = false
                 },
                 new Control
                 {
-                    name = Role,
+                    name = Role.ToCamelCase(),
                     displayName = Role,
                     type = "input",
                     isRequired = false
