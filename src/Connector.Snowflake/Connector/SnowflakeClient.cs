@@ -49,15 +49,15 @@ namespace CluedIn.Connector.Snowflake.Connector
         public override string BuildConnectionString(IDictionary<string, object> config)
         {
             var connectionString = string.Format("scheme=https;ACCOUNT={0};HOST={1};port={2};ROLE={3};WAREHOUSE={4};USER={5};PASSWORD={6};DB={7};SCHEMA={8}",
-                (string)config[SnowflakeConstants.Account],
-                (string)config[CommonConfigurationNames.Host],
-                (string)config[CommonConfigurationNames.PortNumber],
-                (string)config[SnowflakeConstants.Role],
-                (string)config[SnowflakeConstants.Warehouse],
-                (string)config[CommonConfigurationNames.Username],
-                (string)config[CommonConfigurationNames.Password],
-                (string)config[CommonConfigurationNames.DatabaseName],
-                (string)config[CommonConfigurationNames.Schema]);
+                (string)config[SnowflakeConstants.KeyName.Account],
+                (string)config[SnowflakeConstants.KeyName.Host],
+                (string)config[SnowflakeConstants.KeyName.PortNumber],
+                (string)config[SnowflakeConstants.KeyName.Role],
+                (string)config[SnowflakeConstants.KeyName.Warehouse],
+                (string)config[SnowflakeConstants.KeyName.Username],
+                (string)config[SnowflakeConstants.KeyName.Password],
+                (string)config[SnowflakeConstants.KeyName.DatabaseName],
+                (string)config[SnowflakeConstants.KeyName.Schema]);
 
             return connectionString;
         }
