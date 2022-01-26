@@ -9,9 +9,18 @@ namespace CluedIn.Connector.Snowflake
 {
     public class SnowflakeConstants : ConfigurationConstantsBase, ISnowflakeConstants
     {
-        public const string Account = nameof(Account);
-        public const string Role = nameof(Role);
-        public const string Warehouse = nameof(Warehouse);
+        public struct KeyName
+        {
+            public const string Host = "host";
+            public const string DatabaseName = "databaseName";
+            public const string Username = "username";
+            public const string Password = "password";
+            public const string PortNumber = "portNumber";
+            public const string Role = "role";
+            public const string Warehouse = "warehouse";
+            public const string Schema = "schema";
+            public const string Account = "account";
+        }
 
         public SnowflakeConstants() : base(providerId: Guid.Parse("DA0CAC46-A121-47B0-95D3-5FBDC70A36B7"),
             providerName: "Snowflake Connector",
@@ -30,64 +39,64 @@ namespace CluedIn.Connector.Snowflake
             {
                 new Control
                 {
-                    name = CommonConfigurationNames.Host.ToCamelCase(),
+                    name = KeyName.Host,
                     displayName = CommonConfigurationNames.Host.ToDisplayName(),
                     type = "input",
                     isRequired = true
                 },
                 new Control
                 {
-                    name = CommonConfigurationNames.DatabaseName.ToCamelCase(),
+                    name = KeyName.DatabaseName,
                     displayName = CommonConfigurationNames.DatabaseName.ToDisplayName(),
                     type = "input",
                     isRequired = true
                 },
                 new Control
                 {
-                    name = CommonConfigurationNames.Username.ToCamelCase(),
+                    name = KeyName.Username,
                     displayName = CommonConfigurationNames.Username.ToDisplayName(),
                     type = "input",
                     isRequired = true
                 },
                 new Control
                 {
-                    name = CommonConfigurationNames.Password.ToCamelCase(),
+                    name = KeyName.Password,
                     displayName = CommonConfigurationNames.Password.ToDisplayName(),
                     type = "password",
                     isRequired = true
                 },
                 new Control
                 {
-                    name = CommonConfigurationNames.PortNumber.ToCamelCase(),
+                    name = KeyName.PortNumber,
                     displayName = CommonConfigurationNames.PortNumber.ToDisplayName(),
                     type = "input",
                     isRequired = false
                 },
                 new Control
                 {
-                    name = Account.ToCamelCase(),
-                    displayName = Account,
+                    name = KeyName.Account,
+                    displayName = nameof(KeyName.Account),
                     type = "input",
                     isRequired = false
                 },
                 new Control
                 {
-                    name = CommonConfigurationNames.Schema.ToCamelCase(),
-                    displayName = CommonConfigurationNames.Schema.ToDisplayName(),
+                    name = KeyName.Schema,
+                    displayName = nameof(KeyName.Schema),
                     type = "input",
                     isRequired = false
                 },
                 new Control
                 {
-                    name = Warehouse.ToCamelCase(),
-                    displayName = Warehouse,
+                    name = KeyName.Warehouse,
+                    displayName = nameof(KeyName.Warehouse),
                     type = "input",
                     isRequired = false
                 },
                 new Control
                 {
-                    name = Role.ToCamelCase(),
-                    displayName = Role,
+                    name = KeyName.Role,
+                    displayName = nameof(KeyName.Role),
                     type = "input",
                     isRequired = false
                 }
