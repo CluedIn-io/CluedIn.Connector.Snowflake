@@ -14,6 +14,7 @@ using CluedIn.Core.Messages.Processing;
 using CluedIn.Core.Net.Mail;
 using CluedIn.Core.Processing;
 using CluedIn.Core.Processing.Statistics;
+using CluedIn.Core.Providers;
 using CluedIn.Core.Rules;
 using CluedIn.Core.Server;
 using CluedIn.Core.Workflows;
@@ -55,6 +56,7 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
         public readonly ILogger Logger;
 
         private ExecutionContext context;
+        private ProviderUpdateContext providerUpdateContext;
 
         public ExecutionContext Context
         {
@@ -67,6 +69,20 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
                 }
 
                 return context;
+            }
+        }
+
+        public ProviderUpdateContext ProviderUpdateContext
+        {
+            get
+            {
+                if (providerUpdateContext == null)
+                {
+                    var appContext = Container.Resolve<ApplicationContext>();
+                    providerUpdateContext = new ProviderUpdateContext(appContext, new TestOrganization(appContext, Constants.SystemOrganizationId), Logger);
+                }
+
+                return providerUpdateContext;
             }
         }
 
