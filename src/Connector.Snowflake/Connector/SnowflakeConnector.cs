@@ -1,7 +1,9 @@
-﻿using CluedIn.Connector.Common.Configurations;
+﻿using CluedIn.Connector.Common.Caching;
+using CluedIn.Connector.Common.Configurations;
 using CluedIn.Connector.Common.Connectors;
 using CluedIn.Connector.Common.Helpers;
 using CluedIn.Core;
+using CluedIn.Core.Configuration;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.Data.Vocabularies;
 using CluedIn.Core.DataStore;
@@ -17,11 +19,21 @@ using System.Threading.Tasks;
 
 namespace CluedIn.Connector.Snowflake.Connector
 {
-    public class SnowflakeConnector : SqlConnectorBase<SnowflakeConnector, SnowflakeDbConnection, SqlParameter>
+    public class SnowflakeConnector : SqlConnectorBase<SnowflakeConnector, SnowflakeDbConnection, SqlParameter>, IScheduledSyncs
     {
-        public SnowflakeConnector(IConfigurationRepository repository, ILogger<SnowflakeConnector> logger, ISnowflakeClient client,
-            ISnowflakeConstants constants) : base(repository, logger, client, constants.ProviderId)
+        private readonly ICachingService<IDictionary<string, object>, SnowflakeConnectionData> _cachingService;
+        private readonly object _cacheLock = new object();
+        private readonly int _cacheRecordsThreshold;
+
+        public SnowflakeConnector(IConfigurationRepository repository,
+            ILogger<SnowflakeConnector> logger,
+            ISnowflakeClient client,
+            ISnowflakeConstants constants,
+            ICachingService<IDictionary<string, object>, SnowflakeConnectionData> cachingService)
+            : base(repository, logger, client, constants.ProviderId)
         {
+            _cachingService = cachingService;
+            _cacheRecordsThreshold = ConfigurationManagerEx.AppSettings.GetValue(constants.CacheRecordsThresholdKeyName, constants.CacheRecordsThresholdDefaultValue);
         }
 
         public override async Task CreateContainer(ExecutionContext executionContext, Guid providerDefinitionId, CreateContainerModel model)
@@ -41,11 +53,11 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Could not create Container {model.Name} for Connector {providerDefinitionId}";
                 _logger.LogError(e, message);
-                //throw new CreateContainerException(message);
+                throw;
             }
         }
 
-        public string BuildCreateContainerSql(CreateContainerModel model, string tableName)
+        private string BuildCreateContainerSql(CreateContainerModel model, string tableName)
         {
             var builder = new StringBuilder();
             builder.AppendLine($"CREATE TABLE IF NOT EXISTS {SqlStringSanitizer.Sanitize(model.Name)} (");
@@ -135,45 +147,11 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         private VocabularyKeyDataType GetVocabType(string rawType)
         {
-            //return rawType.ToLower() switch
-            //{
-            //    "bigint" => VocabularyKeyDataType.Integer,
-            //    "int" => VocabularyKeyDataType.Integer,
-            //    "smallint" => VocabularyKeyDataType.Integer,
-            //    "boolean" => VocabularyKeyDataType.Boolean,
-            //    "decimal" => VocabularyKeyDataType.Number,
-            //    "numeric" => VocabularyKeyDataType.Number,
-            //    "float" => VocabularyKeyDataType.Number,
-            //    "real" => VocabularyKeyDataType.Number,
-            //    "datetime" => VocabularyKeyDataType.DateTime,
-            //    "date" => VocabularyKeyDataType.DateTime,
-            //    "time" => VocabularyKeyDataType.Time,
-            //    "char" => VocabularyKeyDataType.Text,
-            //    "varchar" => VocabularyKeyDataType.Text,
-            //    "text" => VocabularyKeyDataType.Text,
-            //    "binary" => VocabularyKeyDataType.Text,
-            //    "varbinary" => VocabularyKeyDataType.Text,
-            //    "timestamp" => VocabularyKeyDataType.Text,
-            //    "geography" => VocabularyKeyDataType.GeographyLocation, _ => VocabularyKeyDataType.Text
-            //};
-
             return VocabularyKeyDataType.Text;
         }
 
         private string GetDbType(VocabularyKeyDataType type)
         {
-            //return type switch
-            //{
-            //    VocabularyKeyDataType.Integer => "bigint",
-            //    VocabularyKeyDataType.Number => "decimal(18,4)",
-            //    VocabularyKeyDataType.Money => "money",
-            //    VocabularyKeyDataType.DateTime => "datetime",
-            //    VocabularyKeyDataType.Time => "time",
-            //    VocabularyKeyDataType.Xml => "XML",
-            //    VocabularyKeyDataType.Guid => "varchar",
-            //    VocabularyKeyDataType.GeographyLocation => "geography", _ => "varchar"
-            //};
-
             return "varchar";
         }
 
@@ -181,67 +159,30 @@ namespace CluedIn.Connector.Snowflake.Connector
         {
             try
             {
-                var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
-                var databaseName = (string)config.Authentication[CommonConfigurationNames.DatabaseName];
-                var sql = BuildStoreDataSql(containerName, data, databaseName, out var param);
+                var connection = await GetAuthenticationDetails(executionContext, providerDefinitionId);
+                var configurations = new SnowflakeConnectionData(connection.Authentication, containerName);
 
-                _logger.LogDebug($"Snowflake Connector - Store Data - Generated query: {sql}");
+                lock (_cacheLock)
+                {
+                    _cachingService.AddItem(data, configurations).GetAwaiter().GetResult();
+                }
 
-                await _client.ExecuteCommandAsync(config, sql, param);
+                if (await _cachingService.Count() >= _cacheRecordsThreshold)
+                {
+                    Flush();
+                }
             }
             catch (Exception e)
             {
                 var message = $"Could not store data into Container '{containerName}' for Connector {providerDefinitionId}";
                 _logger.LogError(e, message);
-                //throw new StoreDataException(message);
+                throw;
             }
         }
 
         public override Task StoreEdgeData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, string originEntityCode, IEnumerable<string> edges)
         {
             return Task.CompletedTask;
-        }
-
-        public string BuildStoreDataSql(string containerName, IDictionary<string, object> data, string databaseName, out List<SqlParameter> param)
-        {
-            var builder = new StringBuilder();
-
-            var nameList = data.Select(n => n.Key).ToList();
-            var valueList = data.Select(n => n.Value).ToList();
-
-            var fieldList = string.Join(", ", nameList.Select(n => $"{n}"));
-            var paramList = string.Join(", ", valueList.Select(n => $"'{n}'"));
-            var insertList = string.Join(", ", nameList.Select(n => $"source.{n}"));
-            var updateList = string.Join(", ", nameList.Select(n => $"target.{n} = source.{n}"));
-
-
-            builder.AppendLine($"MERGE INTO {SqlStringSanitizer.Sanitize(containerName)} AS target");
-            builder.AppendLine($"USING (SELECT {paramList}) AS source ({fieldList})");
-            builder.AppendLine("  ON (target.OriginEntityCode = source.OriginEntityCode)");
-            builder.AppendLine("WHEN MATCHED THEN");
-            builder.AppendLine($"  UPDATE SET {updateList}");
-            builder.AppendLine("WHEN NOT MATCHED THEN");
-            builder.AppendLine($"  INSERT ({fieldList})");
-            builder.AppendLine($"  VALUES ({insertList});");
-
-
-
-            param = (from dataType in data let name = SqlStringSanitizer.Sanitize(dataType.Key) select new SqlParameter { ParameterName = $"@{name}", Value = GetDbCompatibleValue(dataType.Value ?? "") }).ToList();
-
-            return builder.ToString();
-        }
-
-        private object GetDbCompatibleValue(object o)
-        {
-            try
-            {
-                var t = new SqlParameter() { ParameterName = "dummy", Value = o }.DbType;
-                return o;
-            }
-            catch
-            {
-                return JsonUtility.Serialize(o);
-            }
         }
 
         public override async Task ArchiveContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
@@ -262,8 +203,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Could not archive Container {id}";
                 _logger.LogError(e, message);
-
-                // throw new EmptyContainerException(message);
+                throw;
             }
         }
 
@@ -313,8 +253,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Could not rename Container {oldTableName}";
                 _logger.LogError(e, message);
-
-                //throw new EmptyContainerException(message);
+                throw;
             }
         }
 
@@ -334,8 +273,42 @@ namespace CluedIn.Connector.Snowflake.Connector
             {
                 var message = $"Could not remove Container {id}";
                 _logger.LogError(e, message);
+                throw;
+            }
+        }
 
-                // throw new EmptyContainerException(message);
+        public async Task Sync()
+        {
+            if (await _cachingService.Count() == 0)
+            {
+                return;
+            }
+
+            Flush();
+        }
+
+        private void Flush()
+        {
+            lock (_cacheLock)
+            {
+                var itemsCount = _cachingService.Count().GetAwaiter().GetResult();
+                if (itemsCount == 0)
+                {
+                    return;
+                }
+
+                var client = _client as ISnowflakeClient;
+                var cachedItems = _cachingService.GetItems().GetAwaiter().GetResult();
+                var cachedItemsByConfigurations = cachedItems.GroupBy(pair => pair.Value).ToList();
+
+                foreach (var group in cachedItemsByConfigurations)
+                {
+                    var configuration = group.Key;
+                    var content = JsonUtility.SerializeIndented(group.Select(g => g.Key));
+
+                    client.SaveData(configuration, content).GetAwaiter().GetResult();
+                    _cachingService.Clear(configuration).GetAwaiter().GetResult();
+                }
             }
         }
     }

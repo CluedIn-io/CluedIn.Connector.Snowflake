@@ -1,9 +1,14 @@
 ﻿using CluedIn.Connector.Common.Clients;
 using CluedIn.Connector.Common.Configurations;
+using CluedIn.Connector.Common.Helpers;
 using Microsoft.Data.SqlClient;
+using Newtonsoft.Json;
 using Snowflake.Data.Client;
+using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace CluedIn.Connector.Snowflake.Connector
@@ -61,5 +66,53 @@ namespace CluedIn.Connector.Snowflake.Connector
 
             return connectionString;
         }
+
+        public async Task SaveData(SnowflakeConnectionData configuration, string content)
+        {
+            var data = JsonConvert.DeserializeObject<IDictionary<string, object>>(content);
+            var sql = BuildStoreDataSql(configuration.ContainerName, data, out var param);
+
+            await ExecuteCommandAsync(configuration, sql, param);
+        }
+
+        private string BuildStoreDataSql(string containerName, IDictionary<string, object> data, out List<SqlParameter> parameters)
+        {
+            var builder = new StringBuilder();
+            var nameList = data.Select(n => n.Key).ToList();
+            var valueList = data.Select(n => n.Value).ToList();
+
+            var fieldList = string.Join(", ", nameList.Select(n => $"{n}"));
+            var paramList = string.Join(", ", valueList.Select(n => $"'{n}'"));
+            var insertList = string.Join(", ", nameList.Select(n => $"source.{n}"));
+            var updateList = string.Join(", ", nameList.Select(n => $"target.{n} = source.{n}"));
+
+            builder.AppendLine($"MERGE INTO {SqlStringSanitizer.Sanitize(containerName)} AS target");
+            builder.AppendLine($"USING (SELECT {paramList}) AS source ({fieldList})");
+            builder.AppendLine("  ON (target.OriginEntityCode = source.OriginEntityCode)");
+            builder.AppendLine("WHEN MATCHED THEN");
+            builder.AppendLine($"  UPDATE SET {updateList}");
+            builder.AppendLine("WHEN NOT MATCHED THEN");
+            builder.AppendLine($"  INSERT ({fieldList})");
+            builder.AppendLine($"  VALUES ({insertList});");
+
+            parameters = new List<SqlParameter>();
+            foreach (var entry in data)
+            {
+                var name = SqlStringSanitizer.Sanitize(entry.Key);
+                var param = new SqlParameter($"@{name}", entry.Value);
+                try
+                {
+                    var dbType = param.DbType;
+                }
+                catch (Exception)
+                {                    
+                    param.Value = JsonConvert.SerializeObject(entry.Value);
+                }
+
+                parameters.Add(param);
+            }
+
+            return builder.ToString();
+        }        
     }
 }
