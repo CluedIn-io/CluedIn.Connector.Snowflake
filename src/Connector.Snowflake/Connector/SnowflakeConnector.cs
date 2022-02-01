@@ -22,6 +22,7 @@ namespace CluedIn.Connector.Snowflake.Connector
     public class SnowflakeConnector : SqlConnectorBase<SnowflakeConnector, SnowflakeDbConnection, SqlParameter>, IScheduledSyncs
     {
         private readonly ICachingService<IDictionary<string, object>, SnowflakeConnectionData> _cachingService;
+        private readonly ISnowflakeClient _snowflakeClient;
         private readonly object _cacheLock = new object();
         private readonly int _cacheRecordsThreshold;
 
@@ -33,6 +34,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             : base(repository, logger, client, constants.ProviderId)
         {
             _cachingService = cachingService;
+            _snowflakeClient = client;
             _cacheRecordsThreshold = ConfigurationManagerEx.AppSettings.GetValue(constants.CacheRecordsThresholdKeyName, constants.CacheRecordsThresholdDefaultValue);
         }
 
@@ -226,12 +228,7 @@ namespace CluedIn.Connector.Snowflake.Connector
             return result;
         }
 
-        private string BuildRemoveContainerSql(string tableName)
-        {
-            var result = $"DROP TABLE {SqlStringSanitizer.Sanitize(tableName)}";
 
-            return result;
-        }
 
         public override async Task RenameContainer(ExecutionContext executionContext, Guid providerDefinitionId, string oldTableName, string newTableName)
         {
@@ -259,22 +256,8 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         public override async Task RemoveContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
         {
-            try
-            {
-                var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
-                var databaseName = (string)config.Authentication[CommonConfigurationNames.DatabaseName];
-                var sql = BuildRemoveContainerSql(id);
-
-                _logger.LogDebug($"Snowflake Connector - Remove Container - Generated query: {sql}");
-
-                await _client.ExecuteCommandAsync(config, sql);
-            }
-            catch (Exception e)
-            {
-                var message = $"Could not remove Container {id}";
-                _logger.LogError(e, message);
-                throw;
-            }
+            var connection = await GetAuthenticationDetails(executionContext, providerDefinitionId);
+            await _snowflakeClient.RemoveContainer(new SnowflakeConnectionData(connection.Authentication), id);
         }
 
         public async Task Sync()
@@ -297,7 +280,6 @@ namespace CluedIn.Connector.Snowflake.Connector
                     return;
                 }
 
-                var client = _client as ISnowflakeClient;
                 var cachedItems = _cachingService.GetItems().GetAwaiter().GetResult();
                 var cachedItemsByConfigurations = cachedItems.GroupBy(pair => pair.Value).ToList();
 
@@ -306,7 +288,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                     var configuration = group.Key;
                     var content = JsonUtility.SerializeIndented(group.Select(g => g.Key));
 
-                    client.SaveData(configuration, content).GetAwaiter().GetResult();
+                    _snowflakeClient.SaveData(configuration, content).GetAwaiter().GetResult();
                     _cachingService.Clear(configuration).GetAwaiter().GetResult();
                 }
             }

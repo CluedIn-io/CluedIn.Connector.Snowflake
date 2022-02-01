@@ -5,7 +5,7 @@ namespace CluedIn.Connector.Snowflake
 {
     public class SnowflakeConnectionData : IConnectorConnection
     {
-        public SnowflakeConnectionData(IDictionary<string, object> configurations, string containerName)
+        public SnowflakeConnectionData(IDictionary<string, object> configurations, string containerName = null)
         {
             Configurations = configurations;
             ContainerName = containerName;

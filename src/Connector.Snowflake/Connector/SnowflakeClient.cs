@@ -67,6 +67,13 @@ namespace CluedIn.Connector.Snowflake.Connector
             return connectionString;
         }
 
+        public async Task RemoveContainer(SnowflakeConnectionData configuration, string containerName)
+        {
+            var sql = $"DROP TABLE {SqlStringSanitizer.Sanitize(containerName)}";
+
+            await ExecuteCommandAsync(configuration, sql);
+        }
+
         public async Task SaveData(SnowflakeConnectionData configuration, string content)
         {
             var data = JsonConvert.DeserializeObject<IDictionary<string, object>>(content);
@@ -113,6 +120,6 @@ namespace CluedIn.Connector.Snowflake.Connector
             }
 
             return builder.ToString();
-        }        
+        }
     }
 }
