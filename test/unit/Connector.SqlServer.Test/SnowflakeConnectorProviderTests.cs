@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading.Tasks;
-using AutoFixture.Xunit2;
+﻿using AutoFixture.Xunit2;
 using CluedIn.Connector.Common.Configurations;
 using CluedIn.Core.Crawling;
 using CluedIn.Core.Webhooks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace CluedIn.Connector.Snowflake.Unit.Tests
@@ -69,20 +68,20 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
         }
 
         [Theory, AutoData]
-        public async void GetCrawlJobData_CamelCaseKeys_MatchesConstantsAndReturnsValues(Guid orgId, Guid userId, Guid providerDefId)
+        public async void GetCrawlJobData_PascalCaseKeys_MatchesConstantsAndReturnsValues(Guid orgId, Guid userId, Guid providerDefId)
         {
             var sut = new SnowflakeConnectorProvider(_testContext.AppContext.Object, _constants, _logger);
             var values = new Dictionary<string, object>
             {
-                { "username", "user" },
-                { "databaseName", "database" },
-                { "host", "host" },
-                { "password", "password" },
-                { "portNumber", "port" },
-                { "role", "role" },
-                { "warehouse", "warehouse" },
-                { "schema", "schema" },
-                { "account", "account" }
+                { "Username", "user" },
+                { "DatabaseName", "database" },
+                { "Host", "host" },
+                { "Password", "password" },
+                { "PortNumber", "port" },
+                { "Role", "role" },
+                { "Warehouse", "warehouse" },
+                { "Schema", "schema" },
+                { "Account", "account" }
             };
 
 
@@ -94,15 +93,15 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
             typedResult.Configurations.Should().Equal(
                 new Dictionary<string, object>
                 {
-                    { SnowflakeConstants.KeyName.Username, "user" },
-                    { SnowflakeConstants.KeyName.DatabaseName, "database" },
-                    { SnowflakeConstants.KeyName.Host, "host" },
-                    { SnowflakeConstants.KeyName.Password, "password" },
-                    { SnowflakeConstants.KeyName.PortNumber, "port" },
-                    { SnowflakeConstants.KeyName.Role, "role" },
-                    { SnowflakeConstants.KeyName.Warehouse, "warehouse" },
-                    { SnowflakeConstants.KeyName.Schema, "schema" },
-                    { SnowflakeConstants.KeyName.Account, "account" }
+                    { CommonConfigurationNames.Username, "user" },
+                    { CommonConfigurationNames.DatabaseName, "database" },
+                    { CommonConfigurationNames.Host, "host" },
+                    { CommonConfigurationNames.Password, "password" },
+                    { CommonConfigurationNames.PortNumber, "port" },
+                    { SnowflakeConstants.Role, "role" },
+                    { SnowflakeConstants.Warehouse, "warehouse" },
+                    { CommonConfigurationNames.Schema, "schema" },
+                    { SnowflakeConstants.Account, "account" }
                 });
 
         }
@@ -150,37 +149,35 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
         }
 
         [Theory, AutoData]
-        public async void GetHelperConfiguration_CamelCaseKeys_MatchesConstantsAndReturnsValues(Guid orgId, Guid userId, Guid providerDefId)
+        public async void GetHelperConfiguration_PascalCaseKeys_MatchesConstantsAndReturnsValues(Guid orgId, Guid userId, Guid providerDefId)
         {
             var sut = new SnowflakeConnectorProvider(_testContext.AppContext.Object, _constants, _logger);
             var data = new CrawlJobDataWrapper(new Dictionary<string, object> {
-                { "username", "user" },
-                { "databaseName", "database" },
-                { "host", "host" },
-                { "password", "password" },
-                { "portNumber", "port" },
-                { "role", "role" },
-                { "warehouse", "warehouse" },
-                { "schema", "schema" },
-                { "account", "account" }
+                { "Username", "user" },
+                { "DatabaseName", "database" },
+                { "Host", "host" },
+                { "Password", "password" },
+                { "PortNumber", "port" },
+                { "Role", "role" },
+                { "Warehouse", "warehouse" },
+                { "Schema", "schema" },
+                { "Account", "account" }
             });
-
-
 
             var result = await sut.GetHelperConfiguration(_testContext.ProviderUpdateContext, data, orgId, userId, providerDefId);
 
             result.Should().Equal(
                 new Dictionary<string, object>
                 {
-                    { SnowflakeConstants.KeyName.Username, "user" },
-                    { SnowflakeConstants.KeyName.DatabaseName, "database" },
-                    { SnowflakeConstants.KeyName.Host, "host" },
-                    { SnowflakeConstants.KeyName.Password, "password" },
-                    { SnowflakeConstants.KeyName.PortNumber, "port" },
-                    { SnowflakeConstants.KeyName.Role, "role" },
-                    { SnowflakeConstants.KeyName.Warehouse, "warehouse" },
-                    { SnowflakeConstants.KeyName.Schema, "schema" },
-                    { SnowflakeConstants.KeyName.Account, "account" }
+                    { CommonConfigurationNames.Username, "user" },
+                    { CommonConfigurationNames.DatabaseName, "database" },
+                    { CommonConfigurationNames.Host, "host" },
+                    { CommonConfigurationNames.Password, "password" },
+                    { CommonConfigurationNames.PortNumber, "port" },
+                    { SnowflakeConstants.Role, "role" },
+                    { SnowflakeConstants.Warehouse, "warehouse" },
+                    { CommonConfigurationNames.Schema, "schema" },
+                    { SnowflakeConstants.Account, "account" }
                 });
         }
 
@@ -194,7 +191,7 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
 
             action.Should().Throw<NotImplementedException>();
         }
-      
+
 
         [Theory, AutoData]
         public void GetAccountInformation_NullData_Throws(Guid orgId, Guid userId, Guid providerDefId)
@@ -238,16 +235,16 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
         {
             var sut = new SnowflakeConnectorProvider(_testContext.AppContext.Object, _constants, _logger);
             var data = new CrawlJobDataWrapper(new Dictionary<string, object> {
-                { "username", "user" },
-                { "databaseName", "database" },
-                { "host", "host" },
-                { "password", "password" },
-                { "port", "port" },
-                { "role", "role" },
-                { "warehouse", "warehouse" },
-                { "schema", "schema" },
-                { "account", "account" }
-            });
+                    { CommonConfigurationNames.Username, "user" },
+                    { CommonConfigurationNames.DatabaseName, "database" },
+                    { CommonConfigurationNames.Host, "host" },
+                    { CommonConfigurationNames.Password, "password" },
+                    { CommonConfigurationNames.PortNumber, "port" },
+                    { SnowflakeConstants.Role, "role" },
+                    { SnowflakeConstants.Warehouse, "warehouse" },
+                    { CommonConfigurationNames.Schema, "schema" },
+                    { SnowflakeConstants.Account, "account" }
+                });
 
             var result = await sut.GetAccountInformation(
                 _testContext.ProviderUpdateContext, data, orgId, userId, providerDefId);
@@ -267,7 +264,7 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
 
             result.Should().Be($"{dateTime.Minute} 0/23 * * *");
         }
-        
+
 
         [Fact]
         public void CreateWebHook_Throws_NotImplemented()

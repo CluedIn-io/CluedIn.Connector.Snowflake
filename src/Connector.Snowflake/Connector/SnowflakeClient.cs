@@ -9,9 +9,11 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
+[assembly: InternalsVisibleTo("CluedIn.Connector.Snowflake.Unit.Tests")]
 namespace CluedIn.Connector.Snowflake.Connector
 {
     public class SnowflakeClient : ClientBase<SnowflakeDbConnection, SqlParameter>, ISnowflakeClient
@@ -70,16 +72,8 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         public async Task CreateContainer(SnowflakeConnectionData configuration, CreateContainerModel model)
         {
-            var sqlBuilder = new StringBuilder();
-            sqlBuilder.AppendLine($"CREATE TABLE IF NOT EXISTS {SqlStringSanitizer.Sanitize(model.Name)} (");            
-            var columnsCount = model.DataTypes.Count;
-            for(var index = 0; index < columnsCount; index++)
-            {                
-                sqlBuilder.AppendLine($"{SqlStringSanitizer.Sanitize(model.DataTypes[index].Name)} varchar NULL{(index < columnsCount - 1 ? "," : "")}");
-            }
-
-            sqlBuilder.AppendLine(");");
-            await ExecuteCommandAsync(configuration, sqlBuilder.ToString());
+            var sql = BuildCreateContainerSql(model);
+            await ExecuteCommandAsync(configuration, sql);
         }
 
         public async Task EmptyContainer(SnowflakeConnectionData configuration, string containerName)
@@ -104,9 +98,24 @@ namespace CluedIn.Connector.Snowflake.Connector
         {
             var sql = BuildStoreDataSql(configuration.ContainerName, content, out var param);
             await ExecuteCommandAsync(configuration, sql, param);
-        }        
+        }
 
-        private string BuildStoreDataSql(string containerName, IEnumerable<KeyValuePair<string, object>> data, out List<SqlParameter> parameters)
+        internal string BuildCreateContainerSql(CreateContainerModel model)
+        {
+            var sqlBuilder = new StringBuilder();
+            sqlBuilder.AppendLine($"CREATE TABLE IF NOT EXISTS {SqlStringSanitizer.Sanitize(model.Name)} (");
+            var columnsCount = model.DataTypes.Count;
+            for (var index = 0; index < columnsCount; index++)
+            {
+                sqlBuilder.AppendLine($"{SqlStringSanitizer.Sanitize(model.DataTypes[index].Name)} varchar NULL{(index < columnsCount - 1 ? "," : "")}");
+            }
+
+            sqlBuilder.AppendLine(");");
+
+            return sqlBuilder.ToString();
+        }
+
+        internal string BuildStoreDataSql(string containerName, IEnumerable<KeyValuePair<string, object>> data, out List<SqlParameter> parameters)
         {
             var builder = new StringBuilder();
             var nameList = data.Select(n => n.Key).ToList();

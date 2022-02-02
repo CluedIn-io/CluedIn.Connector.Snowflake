@@ -1,5 +1,6 @@
 ﻿using AutoFixture.Xunit2;
 using CluedIn.Connector.Common.Helpers;
+using CluedIn.Connector.Snowflake.Connector;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.Data.Vocabularies;
 using System;
@@ -8,8 +9,15 @@ using Xunit;
 
 namespace CluedIn.Connector.Snowflake.Unit.Tests
 {
-    public class SqlGenerationTests : SnowflakeConnectorTestsBase
+    public class SqlGenerationTests
     {
+        private readonly SnowflakeClient _snowflakeClient;
+        public SqlGenerationTests()
+        {
+            _snowflakeClient = new SnowflakeClient();
+        }
+
+
         [Theory, InlineAutoData]
         public void CreateContainerWorks(string name)
         {
@@ -27,7 +35,7 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
                 }
             };
 
-            var result = Sut.BuildCreateContainerSql(model, "dummy_db");
+            var result = _snowflakeClient.BuildCreateContainerSql(model);
 
             Assert.Equal($"CREATE TABLE IF NOT EXISTS {expectedName} ( Field1 varchar NULL, Field2 varchar NULL, Field3 varchar NULL, Field4 varchar NULL, Field5 varchar NULL );", result.Trim().Replace(Environment.NewLine, " "));
         }
@@ -45,7 +53,7 @@ namespace CluedIn.Connector.Snowflake.Unit.Tests
                              { "Field5", field5   }
                         };
 
-            var result = Sut.BuildStoreDataSql(name, data, "dummy_db", out var param);
+            var result = _snowflakeClient.BuildStoreDataSql(name, data, out var param);
 
             Assert.Equal($"MERGE INTO {expectedName} AS target" + Environment.NewLine +
                          $"USING (SELECT '{field1}', '{field2}', '{field3}', '{field4}', '{field5}') AS source (Field1, Field2, Field3, Field4, Field5)" + Environment.NewLine +
