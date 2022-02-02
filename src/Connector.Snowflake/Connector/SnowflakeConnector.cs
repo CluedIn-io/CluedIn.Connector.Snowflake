@@ -1,7 +1,5 @@
 ﻿using CluedIn.Connector.Common.Caching;
-using CluedIn.Connector.Common.Configurations;
 using CluedIn.Connector.Common.Connectors;
-using CluedIn.Connector.Common.Helpers;
 using CluedIn.Core;
 using CluedIn.Core.Configuration;
 using CluedIn.Core.Connectors;
@@ -14,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace CluedIn.Connector.Snowflake.Connector
@@ -42,14 +39,8 @@ namespace CluedIn.Connector.Snowflake.Connector
         {
             try
             {
-                var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
-                //databaseName is not used
-                var databaseName = (string)config.Authentication[CommonConfigurationNames.DatabaseName];
-                var sql = BuildCreateContainerSql(model, databaseName);
-
-                _logger.LogDebug($"Snowflake Connector - Create Container - Generated query: {sql}");
-
-                await _client.ExecuteCommandAsync(config, sql);
+                var connection = await GetAuthenticationDetails(executionContext, providerDefinitionId);
+                await _snowflakeClient.CreateContainer(new SnowflakeConnectionData(connection.Authentication), model);
             }
             catch (Exception e)
             {
@@ -59,37 +50,12 @@ namespace CluedIn.Connector.Snowflake.Connector
             }
         }
 
-        private string BuildCreateContainerSql(CreateContainerModel model, string tableName)
-        {
-            var builder = new StringBuilder();
-            builder.AppendLine($"CREATE TABLE IF NOT EXISTS {SqlStringSanitizer.Sanitize(model.Name)} (");
-
-            var index = 0;
-            var count = model.DataTypes.Count;
-            foreach (var type in model.DataTypes)
-            {
-                builder.AppendLine($"{SqlStringSanitizer.Sanitize(type.Name)} {GetDbType(type.Type)} NULL{(index < count - 1 ? "," : "")}");
-
-                index++;
-            }
-
-            builder.AppendLine(");");
-
-            var sql = builder.ToString();
-            return sql;
-        }
-
         public override async Task EmptyContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
         {
             try
             {
-                var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
-
-                var sql = BuildEmptyContainerSql(id);
-
-                _logger.LogDebug($"Snowflake Connector - Empty Container - Generated query: {sql}");
-
-                await _client.ExecuteCommandAsync(config, sql);
+                var connection = await GetAuthenticationDetails(executionContext, providerDefinitionId);
+                await _snowflakeClient.EmptyContainer(new SnowflakeConnectionData(connection.Authentication, id), id);
             }
             catch (Exception e)
             {
@@ -129,7 +95,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                 var result = from DataRow row in tables.Rows
                              let name = row["COLUMN_NAME"] as string
                              let rawType = row["DATA_TYPE"] as string
-                             let type = GetVocabType(rawType)
+                             let type = VocabularyKeyDataType.Text
                              select new SnowflakeConnectorDataType
                              {
                                  Name = name,
@@ -145,16 +111,6 @@ namespace CluedIn.Connector.Snowflake.Connector
                 _logger.LogError(e, message);
                 return new List<IConnectionDataType>();
             }
-        }
-
-        private VocabularyKeyDataType GetVocabType(string rawType)
-        {
-            return VocabularyKeyDataType.Text;
-        }
-
-        private string GetDbType(VocabularyKeyDataType type)
-        {
-            return "varchar";
         }
 
         public override async Task StoreData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, IDictionary<string, object> data)
@@ -191,15 +147,9 @@ namespace CluedIn.Connector.Snowflake.Connector
         {
             try
             {
-                var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
-
                 var newName = await GetValidContainerName(executionContext, providerDefinitionId, $"{id}{DateTime.Now:yyyyMMddHHmmss}");
-                var databaseName = (string)config.Authentication[CommonConfigurationNames.DatabaseName];
-                var sql = BuildRenameContainerSql(id, newName, out var param);
+                await RenameContainer(executionContext, providerDefinitionId, id, newName);
 
-                _logger.LogDebug($"Snowflake Connector - Archive Container - Generated query: {sql}");
-
-                await _client.ExecuteCommandAsync(config, sql, param);
             }
             catch (Exception e)
             {
@@ -209,46 +159,16 @@ namespace CluedIn.Connector.Snowflake.Connector
             }
         }
 
-        private string BuildRenameContainerSql(string oldTableName, string newTableName, out List<SqlParameter> param)
-        {
-            var result = $"ALTER TABLE IF EXISTS {SqlStringSanitizer.Sanitize(oldTableName)} RENAME TO {SqlStringSanitizer.Sanitize(newTableName)}";
-
-            param = new List<SqlParameter>
-            {
-                new SqlParameter("@tableName", SqlDbType.NVarChar)
-                {
-                    Value = SqlStringSanitizer.Sanitize(oldTableName)
-                },
-                new SqlParameter("@newName", SqlDbType.NVarChar)
-                {
-                    Value = SqlStringSanitizer.Sanitize(newTableName)
-                }
-            };
-
-            return result;
-        }
-
-
-
-        public override async Task RenameContainer(ExecutionContext executionContext, Guid providerDefinitionId, string oldTableName, string newTableName)
+        public override async Task RenameContainer(ExecutionContext executionContext, Guid providerDefinitionId, string oldName, string newName)
         {
             try
             {
-                var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
-
-                var tempName = SqlStringSanitizer.Sanitize(newTableName);
-
-                var databaseName = (string)config.Authentication[CommonConfigurationNames.DatabaseName];
-
-                var sql = BuildRenameContainerSql(oldTableName, tempName, out var param);
-
-                _logger.LogDebug($"Snowflake Connector - Rename Container - Generated query: {sql}");
-
-                await _client.ExecuteCommandAsync(config, sql, param);
+                var connection = await GetAuthenticationDetails(executionContext, providerDefinitionId);
+                await _snowflakeClient.RenameContainer(new SnowflakeConnectionData(connection.Authentication, oldName), oldName, newName);
             }
             catch (Exception e)
             {
-                var message = $"Could not rename Container {oldTableName}";
+                var message = $"Could not rename Container {oldName}";
                 _logger.LogError(e, message);
                 throw;
             }
@@ -256,8 +176,17 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         public override async Task RemoveContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
         {
-            var connection = await GetAuthenticationDetails(executionContext, providerDefinitionId);
-            await _snowflakeClient.RemoveContainer(new SnowflakeConnectionData(connection.Authentication), id);
+            try
+            {
+                var connection = await GetAuthenticationDetails(executionContext, providerDefinitionId);
+                await _snowflakeClient.RemoveContainer(new SnowflakeConnectionData(connection.Authentication, id), id);
+            }
+            catch (Exception e)
+            {
+                var message = $"Could not remove Container {id}";
+                _logger.LogError(e, message);
+                throw;
+            }
         }
 
         public async Task Sync()
@@ -286,7 +215,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                 foreach (var group in cachedItemsByConfigurations)
                 {
                     var configuration = group.Key;
-                    var content = JsonUtility.SerializeIndented(group.Select(g => g.Key));
+                    var content = group.SelectMany(g => g.Key);
 
                     _snowflakeClient.SaveData(configuration, content).GetAwaiter().GetResult();
                     _cachingService.Clear(configuration).GetAwaiter().GetResult();

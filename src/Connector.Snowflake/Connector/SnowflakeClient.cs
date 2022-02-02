@@ -1,6 +1,7 @@
 ﻿using CluedIn.Connector.Common.Clients;
 using CluedIn.Connector.Common.Configurations;
 using CluedIn.Connector.Common.Helpers;
+using CluedIn.Core.Connectors;
 using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
 using Snowflake.Data.Client;
@@ -67,22 +68,45 @@ namespace CluedIn.Connector.Snowflake.Connector
             return connectionString;
         }
 
-        public async Task RemoveContainer(SnowflakeConnectionData configuration, string containerName)
+        public async Task CreateContainer(SnowflakeConnectionData configuration, CreateContainerModel model)
         {
-            var sql = $"DROP TABLE {SqlStringSanitizer.Sanitize(containerName)}";
+            var sqlBuilder = new StringBuilder();
+            sqlBuilder.AppendLine($"CREATE TABLE IF NOT EXISTS {SqlStringSanitizer.Sanitize(model.Name)} (");            
+            var columnsCount = model.DataTypes.Count;
+            for(var index = 0; index < columnsCount; index++)
+            {                
+                sqlBuilder.AppendLine($"{SqlStringSanitizer.Sanitize(model.DataTypes[index].Name)} varchar NULL{(index < columnsCount - 1 ? "," : "")}");
+            }
 
+            sqlBuilder.AppendLine(");");
+            await ExecuteCommandAsync(configuration, sqlBuilder.ToString());
+        }
+
+        public async Task EmptyContainer(SnowflakeConnectionData configuration, string containerName)
+        {
+            var sql = "TRUNCATE TABLE [" + SqlStringSanitizer.Sanitize(containerName) + "]";
             await ExecuteCommandAsync(configuration, sql);
         }
 
-        public async Task SaveData(SnowflakeConnectionData configuration, string content)
+        public async Task RenameContainer(SnowflakeConnectionData configuration, string oldName, string newName)
         {
-            var data = JsonConvert.DeserializeObject<IDictionary<string, object>>(content);
-            var sql = BuildStoreDataSql(configuration.ContainerName, data, out var param);
-
-            await ExecuteCommandAsync(configuration, sql, param);
+            var sql = $"ALTER TABLE IF EXISTS {SqlStringSanitizer.Sanitize(oldName)} RENAME TO {SqlStringSanitizer.Sanitize(newName)}";
+            await ExecuteCommandAsync(configuration, sql);
         }
 
-        private string BuildStoreDataSql(string containerName, IDictionary<string, object> data, out List<SqlParameter> parameters)
+        public async Task RemoveContainer(SnowflakeConnectionData configuration, string containerName)
+        {
+            var sql = $"DROP TABLE {SqlStringSanitizer.Sanitize(containerName)}";
+            await ExecuteCommandAsync(configuration, sql);
+        }
+
+        public async Task SaveData(SnowflakeConnectionData configuration, IEnumerable<KeyValuePair<string, object>> content)
+        {
+            var sql = BuildStoreDataSql(configuration.ContainerName, content, out var param);
+            await ExecuteCommandAsync(configuration, sql, param);
+        }        
+
+        private string BuildStoreDataSql(string containerName, IEnumerable<KeyValuePair<string, object>> data, out List<SqlParameter> parameters)
         {
             var builder = new StringBuilder();
             var nameList = data.Select(n => n.Key).ToList();
@@ -112,7 +136,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                     var dbType = param.DbType;
                 }
                 catch (Exception)
-                {                    
+                {
                     param.Value = JsonConvert.SerializeObject(entry.Value);
                 }
 
