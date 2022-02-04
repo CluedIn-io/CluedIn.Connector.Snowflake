@@ -16,11 +16,11 @@ using System.Threading.Tasks;
 
 namespace CluedIn.Connector.Snowflake.Connector
 {
-    public class SnowflakeConnector : SqlConnectorBase<SnowflakeConnector, SnowflakeDbConnection, SqlParameter>, IScheduledSyncs
+    public class SnowflakeConnector : SqlConnectorBase<SnowflakeConnector, SnowflakeDbConnection, SnowflakeDbParameter>, IScheduledSyncs
     {
         private readonly ICachingService<IDictionary<string, object>, SnowflakeConnectionData> _cachingService;
         private readonly ISnowflakeClient _snowflakeClient;
-        private readonly object _cacheLock = new object();
+        private readonly object _cacheLock;
         private readonly int _cacheRecordsThreshold;
 
         public SnowflakeConnector(IConfigurationRepository repository,
@@ -32,6 +32,7 @@ namespace CluedIn.Connector.Snowflake.Connector
         {
             _cachingService = cachingService;
             _snowflakeClient = client;
+            _cacheLock = _cachingService.Locker;
             _cacheRecordsThreshold = ConfigurationManagerEx.AppSettings.GetValue(constants.CacheRecordsThresholdKeyName, constants.CacheRecordsThresholdDefaultValue);
         }
 
@@ -215,7 +216,7 @@ namespace CluedIn.Connector.Snowflake.Connector
                 foreach (var group in cachedItemsByConfigurations)
                 {
                     var configuration = group.Key;
-                    var content = group.SelectMany(g => g.Key);
+                    var content = group.Select(g => g.Key).ToList();
 
                     _snowflakeClient.SaveData(configuration, content).GetAwaiter().GetResult();
                     _cachingService.Clear(configuration).GetAwaiter().GetResult();

@@ -1,9 +1,8 @@
 ﻿using CluedIn.Connector.Common.Clients;
-using CluedIn.Connector.Common.Configurations;
 using CluedIn.Connector.Common.Helpers;
 using CluedIn.Core.Connectors;
-using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
+using Serilog;
 using Snowflake.Data.Client;
 using System;
 using System.Collections.Generic;
@@ -12,15 +11,22 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using SFDataType = Snowflake.Data.Core.SFDataType;
 
 [assembly: InternalsVisibleTo("CluedIn.Connector.Snowflake.Unit.Tests")]
 namespace CluedIn.Connector.Snowflake.Connector
 {
-    public class SnowflakeClient : ClientBase<SnowflakeDbConnection, SqlParameter>, ISnowflakeClient
+    public class SnowflakeClient : ClientBase<SnowflakeDbConnection, SnowflakeDbParameter>, ISnowflakeClient
     {
         public override async Task<SnowflakeDbConnection> GetConnection(IDictionary<string, object> config)
         {
-            var connectionString = BuildConnectionString(config);
+            var connectionData = new SnowflakeConnectionData(config);
+            return await GetConnection(connectionData);
+        }
+
+        public async Task<SnowflakeDbConnection> GetConnection(SnowflakeConnectionData configuration)
+        {
+            var connectionString = BuildConnectionString(configuration);
             var connection = new SnowflakeDbConnection
             {
                 ConnectionString = connectionString
@@ -56,18 +62,13 @@ namespace CluedIn.Connector.Snowflake.Connector
 
         public override string BuildConnectionString(IDictionary<string, object> config)
         {
-            var connectionString = string.Format("scheme=https;ACCOUNT={0};HOST={1};port={2};ROLE={3};WAREHOUSE={4};USER={5};PASSWORD={6};DB={7};SCHEMA={8}",
-                (string)config[SnowflakeConstants.Account],
-                (string)config[CommonConfigurationNames.Host],
-                (string)config[CommonConfigurationNames.PortNumber],
-                (string)config[SnowflakeConstants.Role],
-                (string)config[SnowflakeConstants.Warehouse],
-                (string)config[CommonConfigurationNames.Username],
-                (string)config[CommonConfigurationNames.Password],
-                (string)config[CommonConfigurationNames.DatabaseName],
-                (string)config[CommonConfigurationNames.Schema]);
+            var connectionData = new SnowflakeConnectionData(config);
+            return BuildConnectionString(connectionData);
+        }
 
-            return connectionString;
+        public string BuildConnectionString(SnowflakeConnectionData cfg)
+        {
+            return $"scheme=https;ACCOUNT={cfg.Account};HOST={cfg.Host};port={cfg.PortNumber};ROLE={cfg.Role};WAREHOUSE={cfg.Warehouse};USER={cfg.Username};PASSWORD={cfg.Password};DB={cfg.DatabaseName};SCHEMA={cfg.Schema}";
         }
 
         public async Task CreateContainer(SnowflakeConnectionData configuration, CreateContainerModel model)
@@ -94,10 +95,29 @@ namespace CluedIn.Connector.Snowflake.Connector
             await ExecuteCommandAsync(configuration, sql);
         }
 
-        public async Task SaveData(SnowflakeConnectionData configuration, IEnumerable<KeyValuePair<string, object>> content)
+        public async Task SaveData(SnowflakeConnectionData configuration, IList<IDictionary<string, object>> content)
         {
             var sql = BuildStoreDataSql(configuration.ContainerName, content, out var param);
-            await ExecuteCommandAsync(configuration, sql, param);
+            await AlternateExecuteCommandAsync(configuration, sql, param);
+        }
+
+        private async Task AlternateExecuteCommandAsync(SnowflakeConnectionData configuration, string sql, IList<SnowflakeDbParameter> parameters)
+        {
+            Log.Information("SnowflakeClient.AlternateExecuteCommandAsync: entry");
+            using var connection = await GetConnection(configuration);
+            using var command = connection.CreateCommand();
+            try
+            {
+                command.CommandText = sql;
+                command.Parameters.AddRange(parameters.ToArray());
+                await command.ExecuteNonQueryAsync();
+                Log.Information("SnowflakeClient.AlternateExecuteCommandAsync: exit");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, $"SnowflakeClient.AlternateExecuteCommandAsync failed. Sql:\n {sql} \n with parameters:\n {JsonConvert.SerializeObject(parameters.Select(p => new KeyValuePair<string, object>(p.ParameterName, p.Value)))}\n with configuration: {JsonConvert.SerializeObject(configuration)}");
+                Log.Error($"SnowflakeClient.AlternateExecuteCommandAsync failed. Exception: {JsonConvert.SerializeObject(ex)}");
+            }
         }
 
         internal string BuildCreateContainerSql(CreateContainerModel model)
@@ -115,42 +135,49 @@ namespace CluedIn.Connector.Snowflake.Connector
             return sqlBuilder.ToString();
         }
 
-        internal string BuildStoreDataSql(string containerName, IEnumerable<KeyValuePair<string, object>> data, out List<SqlParameter> parameters)
+        internal string BuildStoreDataSql(string containerName, IList<IDictionary<string, object>> data, out IList<SnowflakeDbParameter> parameters)
         {
             var builder = new StringBuilder();
-            var nameList = data.Select(n => n.Key).ToList();
-            var valueList = data.Select(n => n.Value).ToList();
+            var sampleData = data.First();
+            var rawColumnNames = sampleData.Keys;
+            var columnNames = rawColumnNames.Select(n => SqlStringSanitizer.Sanitize(n));
+            var fieldList = string.Join(", ", columnNames.Select(n => $"{n}"));
+            var insertList = string.Join(", ", columnNames.Select(n => $"source.{n}"));
+            var updateList = string.Join(", ", columnNames.Select(n => $"target.{n} = source.{n}"));
 
-            var fieldList = string.Join(", ", nameList.Select(n => $"{n}"));
-            var paramList = string.Join(", ", valueList.Select(n => $"'{n}'"));
-            var insertList = string.Join(", ", nameList.Select(n => $"source.{n}"));
-            var updateList = string.Join(", ", nameList.Select(n => $"target.{n} = source.{n}"));
-
-            builder.AppendLine($"MERGE INTO {SqlStringSanitizer.Sanitize(containerName)} AS target");
-            builder.AppendLine($"USING (SELECT {paramList}) AS source ({fieldList})");
-            builder.AppendLine("  ON (target.OriginEntityCode = source.OriginEntityCode)");
-            builder.AppendLine("WHEN MATCHED THEN");
-            builder.AppendLine($"  UPDATE SET {updateList}");
-            builder.AppendLine("WHEN NOT MATCHED THEN");
-            builder.AppendLine($"  INSERT ({fieldList})");
-            builder.AppendLine($"  VALUES ({insertList});");
-
-            parameters = new List<SqlParameter>();
-            foreach (var entry in data)
+            parameters = new List<SnowflakeDbParameter>();
+            var paramNamesBuilder = new StringBuilder();
+            for (var index = 0; index < data.Count(); index++)
             {
-                var name = SqlStringSanitizer.Sanitize(entry.Key);
-                var param = new SqlParameter($"@{name}", entry.Value);
-                try
-                {
-                    var dbType = param.DbType;
-                }
-                catch (Exception)
-                {
-                    param.Value = JsonConvert.SerializeObject(entry.Value);
-                }
+                if (index != 0)
+                    paramNamesBuilder.Append(",");
 
-                parameters.Add(param);
+                paramNamesBuilder
+                    .Append("(")
+                    .Append(string.Join(", ", columnNames.Select(columnName => $":{columnName}{index}")))
+                    .Append(")");
+
+                var entry = data[index];
+                foreach (var columnName in rawColumnNames)
+                {
+                    var valueExist = entry.TryGetValue(columnName, out var value);
+                    var snowflakeParameter = new SnowflakeDbParameter($"{SqlStringSanitizer.Sanitize(columnName)}{index}", SFDataType.TEXT)
+                    {
+                        Value = valueExist ? JsonConvert.SerializeObject(value) : null
+                    };
+                    parameters.Add(snowflakeParameter);
+                }
             }
+
+            builder
+                .AppendLine($"MERGE INTO {SqlStringSanitizer.Sanitize(containerName)} AS target")
+                .AppendLine($"USING (SELECT * FROM VALUES ({paramNamesBuilder})) AS source ({fieldList})")
+                .AppendLine("  ON (target.OriginEntityCode = source.OriginEntityCode)")
+                .AppendLine("WHEN MATCHED THEN")
+                .AppendLine($"  UPDATE SET {updateList}")
+                .AppendLine("WHEN NOT MATCHED THEN")
+                .AppendLine($"  INSERT ({fieldList})")
+                .AppendLine($"  VALUES ({insertList});");
 
             return builder.ToString();
         }

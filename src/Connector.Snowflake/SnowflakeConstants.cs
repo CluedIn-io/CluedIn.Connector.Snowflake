@@ -1,5 +1,4 @@
 using CluedIn.Connector.Common.Configurations;
-using CluedIn.Core;
 using CluedIn.Core.Providers;
 using System;
 
