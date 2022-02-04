@@ -41,7 +41,7 @@ namespace CluedIn.Connector.Snowflake
         /// <summary>
         /// Default value for Cache records threshold
         /// </summary>
-        public int CacheRecordsThresholdDefaultValue => 50;
+        public int CacheRecordsThresholdDefaultValue => 10;
 
         private static AuthMethods SnowflakeAuthMethods => new AuthMethods
         {
