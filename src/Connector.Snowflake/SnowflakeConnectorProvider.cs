@@ -17,7 +17,7 @@ namespace CluedIn.Connector.Snowflake
         {
         }
 
-        protected override IEnumerable<string> ProviderNameParts => new[] { SnowflakeConstants.KeyName.Host, SnowflakeConstants.KeyName.DatabaseName };
+        protected override IEnumerable<string> ProviderNameParts => new[] { CommonConfigurationNames.Host, CommonConfigurationNames.DatabaseName };
 
         public override string Schedule(DateTimeOffset relativeDateTime, bool webHooksEnabled)
             => $"{relativeDateTime.Minute} 0/23 * * *";
