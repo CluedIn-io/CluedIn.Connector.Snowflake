@@ -144,19 +144,24 @@ namespace CluedIn.Connector.Snowflake.Connector
             return Task.CompletedTask;
         }
 
-        public override async Task ArchiveContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
+        public override Task ArchiveContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
         {
-            try
+            lock (_cacheLock)
             {
-                var newName = await GetValidContainerName(executionContext, providerDefinitionId, $"{id}{DateTime.Now:yyyyMMddHHmmss}");
-                await RenameContainer(executionContext, providerDefinitionId, id, newName);
-
-            }
-            catch (Exception e)
-            {
-                var message = $"Could not archive Container {id}";
-                _logger.LogError(e, message);
-                throw;
+                try
+                {
+                    Flush();
+                    var newName = GetValidContainerName(executionContext, providerDefinitionId, $"{id}{DateTime.Now:yyyyMMddHHmmss}").GetAwaiter().GetResult();
+                    RenameContainer(executionContext, providerDefinitionId, id, newName).GetAwaiter().GetResult();
+                    return Task.CompletedTask;
+                }
+                catch (Exception e)
+                {
+                    _cachingService.Clear().GetAwaiter().GetResult();
+                    var message = $"Could not archive Container {id}";
+                    _logger.LogError(e, message);
+                    throw;
+                }
             }
         }
 
