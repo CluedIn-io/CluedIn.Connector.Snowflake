@@ -14,7 +14,7 @@ namespace CluedIn.Connector.Snowflake
             container.Register(Component.For<ISnowflakeClient>().ImplementedBy<SnowflakeClient>());
             container.Register(Component.For<ISnowflakeConstants>().ImplementedBy<SnowflakeConstants>().LifestyleSingleton());
             container.Register(Component.For<ICachingService<IDictionary<string, object>, SnowflakeConnectionData>>()
-                .UsingFactoryMethod(x => SqlServerCachingService<IDictionary<string, object>, SnowflakeConnectionData>.CreateCachingService().GetAwaiter().GetResult())
+                .UsingFactoryMethod(x => SqlServerCachingService<IDictionary<string, object>, SnowflakeConnectionData>.CreateCachingService(nameof(SnowflakeConnector)).GetAwaiter().GetResult())
                 .LifestyleSingleton());
 
             container.Register(Component.For<IScheduledSyncs>().ImplementedBy<SnowflakeConnector>().Named($"{nameof(IScheduledSyncs)}.{nameof(SnowflakeConnector)}").LifestyleSingleton());
