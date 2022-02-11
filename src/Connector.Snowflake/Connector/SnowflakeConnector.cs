@@ -5,7 +5,6 @@ using CluedIn.Core.Configuration;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.Data.Vocabularies;
 using CluedIn.Core.DataStore;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Snowflake.Data.Client;
 using System;
